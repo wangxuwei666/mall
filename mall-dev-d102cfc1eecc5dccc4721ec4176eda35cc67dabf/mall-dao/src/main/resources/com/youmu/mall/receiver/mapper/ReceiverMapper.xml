@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.receiver.dao.ReceiverDao" >
+
+	<select id="findReceiver" resultType="com.youmu.mall.receiver.vo.ReceiverVO" >
+    select 
+    	r.id, r.user_id userId, r.consignee, r.phone, r.province_code provinceCode, r.city_code cityCode, r.district_code districtCode, r.detail_address detailAddress, 
+    	r.is_default isDefault,p.name provinceName,c.name cityName,d.name districtName,r.delete_flag deleteFlag
+    from receiver r
+    left join province p on p.code = r.province_code
+    left join city c on c.code = r.city_code
+    left join district d on d.code = r.district_code
+    where r.user_id = #{userId} and r.delete_flag=0
+    	<if test="isDefault!=null">	
+    		and r.is_default = #{isDefault}
+    	</if>
+    	<if test="receiveId!=null">	
+    		and r.id = #{receiveId}
+    	</if>
+   	order by is_default DESC
+  </select>
+  
+  <sql id="WhereSql">
+  	<where>
+  		<if test="userId != null">
+  			and r.user_id = #{userId}
+  		</if>
+  		<if test="isDefault != null">
+  			and r.is_default = #{isDefault}
+  		</if>
+  		<if test="receiverId != null">
+  			and r.id = #{receiverId}
+  		</if>
+  		and r.delete_flag = 0
+  	</where>
+  </sql>
+  
+  <insert id="save" useGeneratedKeys="true" keyColumn="id">
+    insert into receiver ( user_id, consignee, 
+      phone, province_code, 
+      city_code, district_code, detail_address, 
+      is_default, gmt_create,delete_flag)
+    values ( #{userId}, #{consignee}, 
+      #{phone}, #{provinceCode}, 
+      #{cityCode}, #{districtCode}, #{detailAddress}, 
+      #{isDefault}, now(),0)
+  </insert>
+  
+  
+  <update id="update" parameterType="com.youmu.mall.receiver.domain.Receiver">
+    update receiver
+    <set >
+      gmt_modified = now(),
+      <if test="consignee != null" >
+        consignee = #{consignee},
+      </if>
+      <if test="phone != null" >
+        phone = #{phone},
+      </if>
+      <if test="provinceCode != null" >
+        province_code = #{provinceCode},
+      </if>
+      <if test="cityCode != null" >
+        city_code = #{cityCode},
+      </if>
+      <if test="districtCode != null" >
+        district_code = #{districtCode},
+      </if>
+      <if test="detailAddress != null" >
+        detail_address = #{detailAddress},
+      </if>
+      <if test="isDefault != null" >
+        is_default = #{isDefault}
+      </if>
+    </set>
+    where id = #{id} and delete_flag = 0
+  </update>
+  
+  <update id="deleteById">
+  	update receiver 
+  		set delete_flag = 1
+  	where id = #{receiverId} and delete_flag = 0 and user_id = #{userId}
+  </update>
+  
+  <update id="cancelDefault">
+    update receiver
+    set
+        is_default = 0,
+        gmt_modified = now()
+    where is_default = 1 and delete_flag = 0 and user_id = #{userId}
+  </update>
+  
+  <!-- 根据省code获取市和市级的code -->
+  <select id="getCity" resultType="com.youmu.mall.receiver.vo.AddressVo">
+  	select 
+  		c.code code 
+  		,c.name name 
+  		,p.code upCode
+  	from province p 
+  	left join city c on p.code = c.up_code
+  	where p.code = #{provinceCode}
+  </select>
+  
+  <select id="getDistrict" resultType="com.youmu.mall.receiver.vo.AddressVo">
+  	select 
+  		d.code code
+  		,d.name name
+  		,c.code upCode
+  	from district d 
+  	left join city c on c.code = d.up_code
+  	where c.code = #{cityCode}
+  </select>
+  
+  <select id="getProvince" resultType="com.youmu.mall.receiver.vo.AddressVo">
+  	select 
+  		code
+  		,name
+  	from province
+  </select>
+  
+</mapper>

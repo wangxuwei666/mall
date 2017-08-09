@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.points.dao.PointsRecordDao">
+
+	<!-- 插入积分记录 -->
+	<insert id="insertRecord" parameterType="com.youmu.mall.points.domain.PointsRecord"
+		useGeneratedKeys="true" keyColumn="id" keyProperty="id">
+	
+		insert into points_record(
+			points_id
+			,user_id
+			,product_id
+			,order_sn
+			,points_type
+			,points_value
+			,balanced_amount
+			,backdays
+			,balanced_days
+			,progress
+		)values(
+		     #{pointsId}
+		    ,#{userId}
+		    ,#{productId}
+		    ,#{orderSn}
+		    ,#{pointsType}
+		    ,#{pointsValue}
+		    ,0
+		    ,#{backdays}
+		    ,#{balancedDays}
+		    ,#{progress}
+		)
+	</insert>
+	
+	<update id="updateRecordProgress">
+		update points_record 
+		   set  progress = #{progress}
+	    where order_sn = #{sn}
+	     and delete_flag = 0
+	
+	</update>
+	
+   <update id="deleteRecordBySn">
+   	update points_record
+  		set delete_flag = 1
+  	where order_sn = #{sn}
+  
+   </update>
+  
+   <select id="getPointsRecordsNotDone" resultType="com.youmu.mall.points.domain.PointsRecord">   
+	   select
+	   	   id 
+	   	  ,user_id userId
+	   	  ,product_id productId
+	   	  ,points_type pointsType
+	   	  ,points_value pointsValue
+	   	  ,balanced_amount balancedAmount
+	   	  ,backdays 
+	   	  ,balanced_days balancedDays
+	   	  ,progress
+	   	from points_record
+	   	where (progress = 4 
+	   	or progress = 5)
+	   	and delete_flag = 0
+	   	
+   </select>
+  
+  <update id="updateRecord" parameterType="com.youmu.mall.points.domain.PointsRecord">
+    update points_record
+    	set
+    		balanced_amount = #{balancedAmount}
+    		,balanced_days = #{balancedDays}
+    		,progress = #{progress}
+    	where id = #{id} and delete_flag = 0
+  </update>
+  
+  <select id="getProgressBySn" resultType="int">
+     select
+        progress
+     from points_record
+     where order_sn = #{sn}
+  </select>
+</mapper>

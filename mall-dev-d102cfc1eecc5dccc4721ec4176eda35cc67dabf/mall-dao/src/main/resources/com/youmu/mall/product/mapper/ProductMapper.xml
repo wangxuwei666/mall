@@ -1,0 +1,522 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.product.dao.ProductDao">
+
+  <sql id="PageSql">
+    <if test="startRow != null and pageSize != null">
+      limit #{startRow}, #{pageSize}
+    </if>
+  </sql>
+
+	<resultMap id="productDetailShopVoMap" type="com.youmu.mall.product.vo.ProductDetailShopVo">
+		<id column="id" property="id" jdbcType="BIGINT" />
+		<result column="name" property="name" jdbcType="VARCHAR" />
+		<result column="businessId" property="businessId" />
+		<result column="businessName" property="businessName" />
+		<result column="businessTypeId" property="businessTypeId" />
+		<result column="saleCount" property="saleCount" />
+		<result column="promotionPrice" property="promotionPrice" />
+		<result column="oldPrice" property="oldPrice" jdbcType="DECIMAL" />
+		<result column="digest" property="digest" jdbcType="VARCHAR" />
+		<result column="total" property="total" jdbcType="INTEGER" />
+		<result column="status" property="status" jdbcType="INTEGER" />
+		<result column="freight" property="freight" />
+		<result column="intro" property="intro" />
+		<result column="thumbnail" property="thumbnail" />
+		<result column="saleCount" property="saleCount" />
+		<result column="category" property="categoryId" />
+		<result column="bargainPrice" property="bargainPrice" />
+		<result column="backdays" property="backdays" />
+		<result column="groupType" property="groupType" />
+		<result column="bargainName" property="bargainName" />
+		<result column="quantity" property="quantity" />
+		<result column="totalQuantity" property="totalQuantity" />
+		<result column="gmtFinish" property="gmtFinish" />
+		
+		<collection property="imagesUrls" ofType="java.lang.String" javaType="java.util.ArrayList">
+			<id column="url" />
+		</collection>
+	</resultMap>
+	
+	<resultMap id="productSysVoMap" type="com.youmu.mall.product.vo.ProductSysVo">
+		<id column="id" property="id" jdbcType="BIGINT" />
+		<result column="name" property="name" jdbcType="VARCHAR" />
+		<result column="businessTypeId" property="businessTypeId" />
+		<result column="businessTypeName" property="businessTypeName" />
+		<result column="businessName" property="businessName" />
+		<result column="promotionPrice" property="promotionPrice" />
+		<result column="oldPrice" property="oldPrice" jdbcType="DECIMAL" />
+		<result column="total" property="total" jdbcType="INTEGER" />
+		<result column="status" property="status" />
+		<result column="thumbnail" property="thumbnail" />
+		<result column="businessId" property="businessId" />
+		<result column="digest" property="digest" />
+		<result column="intro" property="intro" />
+		<result column="category" property="categoryId" />
+		<collection property="imagesUrls" ofType="java.lang.String" javaType="java.util.ArrayList">
+			<id column="url" />
+		</collection>
+	</resultMap>
+
+	<sql id="WhereSql">
+		<where>
+			<if test="keywords != null and keywords != ''">
+			and
+			(
+			b.name like concat('%',#{keywords},'%')
+			or
+			p.name like concat('%',#{keywords},'%')
+			)
+			</if>
+			<if test="businessTypeId!=null">
+			   and p.business_type_id= #{businessTypeId}
+			</if>
+			<if test="businessId != null">
+				and p.business_id = #{businessId}
+			</if>
+			<if test="status != null">
+				and p.status = #{status}
+			</if>
+			<!-- <if test="businessTypeId != null">
+				and b.type_id = #{businessTypeId}
+			</if> -->
+			<if test="stock != null">
+				and p.total &lt;= #{stock}
+			</if>
+			<if test="isFilter == 1">
+				and b.type_id != 5
+			</if>
+			and p.delete_flag = 0
+			 and b.gmt_end >= NOW() 
+			and b.gmt_start &lt;= NOW()
+		</where>
+	</sql>
+
+	<!-- 用户端-根据分类查询商品信息 -->
+	<select id="getProductVoByType" resultType="com.youmu.mall.product.vo.ProductVo"
+		parameterType="com.youmu.mall.product.query.ProductQuery">
+		select
+			p_info.*
+		from
+		(
+		select
+		p.id
+		,p.name
+		,p.thumbnail
+		,p.old_price oldPrice
+		,p.promotion_price promotionPrice
+		,p.total
+		,p.digest
+		,p.category
+		 
+		,bp.bargainPrice bargainPrice
+		,bp.groupType groupType
+		,bp.bargainName bargainName
+		from product p
+		LEFT JOIN business b on b.id = p.business_id and b.delete_flag = 0
+		LEFT JOIN
+		(
+			SELECT
+				pgd.product_id productId
+				,pgd.price bargainPrice
+				,pg.group_type groupType
+				,pg.name bargainName
+			FROM
+			product_group_detail pgd
+			LEFT JOIN product_group pg on pg.id = pgd.group_id and pg.delete_flag = 0 
+			LEFT JOIN product p on p.id = pgd.product_id and p.delete_flag = 0
+			where pgd.delete_flag = 0 
+			and
+			(
+			
+				(
+					  pg.group_type = 1
+					  and 
+						 (pg.gmt_end>DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') and pg.gmt_start &lt; DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s'))
+				)
+			OR 
+					  (pg.group_type = 2)
+       <!-- OR
+					  (pg.group_type = 3) -->
+			OR		  
+					  (pg.group_type = 4)	  
+		  	)
+		) bp on bp.productId = p.id
+		<include refid="WhereSql" />
+		and p.total > 0
+		) p_info
+		<where>
+			<if test="priceType == null">
+				p_info.groupType IS NULL
+			</if>
+			<if test="priceType == 1">
+				and p_info.groupType = 1
+			</if>
+			<if test="priceType == 2">
+				and p_info.groupType = 2
+			</if>
+
+			<if test="priceType == 3">
+				and p_info.groupType = 3
+			</if>
+
+			<if test="priceType == 4">
+                
+			</if>
+
+		</where>
+		<include refid="PageSql" />
+	</select>
+	
+	<select id="getByCount" resultType="long"
+		parameterType="com.youmu.mall.product.query.ProductQuery">
+		select
+		count(p.id)
+		from product p
+		LEFT JOIN business b on b.id = p.business_id and b.delete_flag = 0
+		LEFT JOIN
+		(
+			SELECT
+				pgd.product_id productId
+				,pgd.price bargainPrice
+				,pg.group_type groupType
+				,pg.name bargainName
+			FROM
+			product_group_detail pgd
+			LEFT JOIN product_group pg on pg.id = pgd.group_id and pg.delete_flag = 0 
+			LEFT JOIN product p on p.id = pgd.product_id and p.delete_flag = 0
+			where pgd.delete_flag = 0 
+			and
+			(
+				(
+					  pg.group_type = 1 
+					  and 
+					 (pg.gmt_end>DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') and pg.gmt_start &lt; DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s'))
+				)
+			OR 
+					  (pg.group_type = 2)
+			OR
+					  (pg.group_type = 4)
+			)
+		) bp on bp.productId = p.id
+		<include refid="WhereSql" />
+		and p.total > 0	
+	</select>
+
+	<!-- 管理后台-商品列表 -->
+	<select id="getProductSysVo" resultType="com.youmu.mall.product.vo.ProductSysVo"
+		parameterType="com.youmu.mall.product.query.ProductQuery">
+		select
+		p.id
+		,p.business_type_id businessTypeId 
+		,p.business_id businessId
+		,bt.name businessTypeName
+		,p.name
+		,p.thumbnail
+		,p.old_price oldPrice
+		,p.promotion_price promotionPrice
+		,p.total
+		,p.status
+		from product p
+		left join business b on b.id = p.business_id and b.delete_flag = 0 
+		<!-- left join business_type bt on bt.id = b.type_id and bt.delete_flag = 0 -->
+		left join business_type bt on bt.id = p.business_type_id and bt.delete_flag = 0 
+		<include refid="WhereSql" />
+		<include refid="PageSql" />
+	</select>
+	
+	<!-- 管理后台 - 根据id查看/编辑商品 -->
+	<select id="getProductSysVoById" resultMap="productSysVoMap">
+		select
+		p.id
+		,bt.id businessTypeId
+		,bt.name businessTypeName
+		,b.name businessName
+		,p.name
+		,p.thumbnail
+		,p.old_price oldPrice
+		,p.promotion_price promotionPrice
+		,p.total
+		,p.status
+		,p.digest
+		,p.intro
+		,b.id businessId
+		,pi.url
+		,p.category
+		from product p
+		left join business b on b.id = p.business_id and b.delete_flag = 0
+		left join business_type bt on bt.id = p.business_type_id and bt.delete_flag = 0
+		left join product_imgs pi on pi.product_id = p.id and pi.delete_flag = 0
+		where
+		p.id = #{productId} and p.delete_flag = 0
+	</select>
+
+	<select id="getCountBySysVo" resultType="long"
+		parameterType="com.youmu.mall.product.query.ProductQuery">
+		select
+		count(p.id)
+		from product p
+		<!-- left join business b on b.id = p.business_id and b.delete_flag = 0
+		left join business_type bt on bt.id = b.type_id and bt.delete_flag = 0 -->
+		left join business b on b.id = p.business_id and b.delete_flag = 0  
+		left join business_type bt on bt.id = p.business_type_id and bt.delete_flag = 0 
+		<include refid="WhereSql" /> 
+	</select>
+
+	<!-- 用户端商品详情 -->
+	<select id="getProductDetailShopVo" resultMap="productDetailShopVoMap">
+		select
+		p.id
+		,p.name
+		,p.old_price oldPrice
+		,p.promotion_price promotionPrice
+		,p.sale_count saleCount
+		,p.thumbnail
+		,p.total
+		,p.status
+		,p.digest
+		,p.freight
+		,p.intro
+		,p.business_id businessId
+		,b.name businessName
+		,b.type_id businessTypeId
+		,pi.url
+		,p.category
+		
+		,bp.backdays
+		,bp.bargainName bargainName
+		,bp.bargainPrice bargainPrice
+		,bp.groupType groupType
+		,bp.quantity
+		,bp.totalQuantity 
+		,bp.gmtFinish
+		from product p
+		left join product_imgs pi on pi.product_id = p.id and pi.delete_flag = 0
+		left join business b on b.id = p.business_id and b.delete_flag = 0
+		 LEFT JOIN
+		(
+			SELECT
+				pgd.product_id productId
+				,pgd.price bargainPrice
+				,pgd.quantity
+				,pgd.total_quantity totalQuantity
+				,pgd.gmt_finish gmtFinish
+				,pgd.backdays 
+				,pg.name bargainName
+				,pg.group_type groupType
+			FROM
+			product_group_detail pgd
+			LEFT JOIN product_group pg on pg.id = pgd.group_id and pg.delete_flag = 0 
+			LEFT JOIN product p on p.id = pgd.product_id and p.delete_flag = 0
+				
+			where pgd.delete_flag = 0 
+			and
+			(
+				(
+					 pg.group_type = 1  
+				    and
+					 (pg.gmt_end>DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') and pg.gmt_start &lt;= DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s'))
+				) 
+			OR 
+				(pg.group_type = 2)
+			OR
+				(pg.group_type = 4)
+			)
+		) bp on bp.productId = p.id
+		where p.id = #{productId} 
+		and b.gmt_end >= NOW() 
+		and b.gmt_start &lt;= NOW()
+		and p.delete_flag = 0 and p.status = 1
+	</select>
+
+	<select id="getById" resultType="com.youmu.mall.product.domain.Product"
+		parameterType="java.lang.Long">
+		select
+		p.id
+		,p.name
+		,p.status
+		,p.old_price oldPrice
+		,p.promotion_price promotionPrice
+		,p.total
+		,p.version
+		from product p
+		where p.id = #{id} and p.delete_flag = 0
+	</select>
+
+	<insert id="insertAndGetId" parameterType="com.youmu.mall.product.domain.Product"
+		useGeneratedKeys="true" keyColumn="id" keyProperty="id">
+		insert into product (
+		name
+		,business_id
+		,promotion_price
+		,old_price
+		,digest
+		,sn
+		,total
+		,sale_count
+		, status
+		, thumbnail
+		,delete_flag
+		,gmt_create
+		, intro
+		, category
+		<if test="status == 1">
+			,gmt_putaway
+		</if>
+		,business_type_id
+		)
+		values (
+		#{name}
+		,#{businessId}
+		,#{promotionPrice}
+		,#{oldPrice}
+		, #{digest}
+		, #{sn}
+		,#{total}
+		, 0
+		, #{status}
+		,#{thumbnail}
+		,0
+		,now()
+		, #{intro}
+		, #{categoryId}
+		<if test="status == 1">
+			,NOW()
+		</if>
+		,#{businessTypeId}
+		)
+	</insert>
+
+	<insert id="batchSaveProductImages">
+		insert into product_imgs(product_id, url,gmt_create, delete_flag)
+		values
+		<foreach collection="list" item="item" separator=",">
+			(#{productId}, #{item}, now(),0)
+		</foreach>
+	</insert>
+
+	<update id="deleteImagesById">
+		update product_imgs
+		set
+		delete_flag = 1
+		where delete_flag = 0 and product_id = #{productId}
+	</update>
+
+
+	<update id="update" parameterType="com.youmu.mall.product.domain.Product">
+		update product
+		<set>
+			<if test="name != null">
+				name = #{name,jdbcType=VARCHAR},
+			</if>
+			<if test="businessId != null">
+				business_id = #{businessId},
+			</if>
+			<if test="promotionPrice != null">
+				promotion_price = #{promotionPrice,jdbcType=DECIMAL},
+			</if>
+			<if test="oldPrice != null">
+				old_price = #{oldPrice,jdbcType=DECIMAL},
+			</if>
+			<if test="digest != null">
+				digest = #{digest,jdbcType=VARCHAR},
+			</if>
+			<if test="sn != null">
+				sn = #{sn,jdbcType=VARCHAR},
+			</if>
+			<if test="categoryId !=null">
+				category = #{categoryId},
+			</if>
+			<if test="total != null">
+				total = #{total,jdbcType=INTEGER},
+			</if>
+			<if test="thumbnail != null and thumbnail != ''">
+				thumbnail = #{thumbnail},
+			</if>
+			<if test="status == 1">
+				status = 1,
+				gmt_putaway = NOW(),
+			</if>
+			<if test="status == 2">
+				status = 2,
+				gmt_outstock = NOW(),
+			</if>
+			<if test="deleteFlag != null">
+				delete_flag = #{deleteFlag},
+			</if>
+			<if test="gmtCreate != null">
+				gmt_create = #{gmtCreate,jdbcType=TIMESTAMP},
+			</if>
+			<if test="gmtModified != null">
+				gmt_modified = #{gmtModified,jdbcType=TIMESTAMP},
+			</if>
+			<if test="intro != null">
+				intro = #{intro,jdbcType=LONGVARCHAR},
+			</if>
+			<if test="businessTypeId != null">
+				business_type_id = #{businessTypeId},
+			</if>
+		</set>
+		where id = #{id,jdbcType=BIGINT}
+	</update>
+
+	<!-- 出库，入库暂时不用 -->
+	<update id="putawayById">
+		update product
+		set gmt_putaway = now(),status = 1
+		where id = #{productId} and delete_flag = 0
+	</update>
+
+	<update id="outstockById">
+		update product
+		set gmt_outstock = now(),status = 2
+		where id = #{productId} and delete_flag = 0
+	</update>
+	<!-- 出库，入库暂时不用 -->
+
+	<select id="getRepeatCount" parameterType="com.youmu.mall.product.domain.Product" resultType="int">
+		select count(p.id) from product p
+		where p.name = #{name} and
+		p.delete_flag = 0
+		<if test="id != null">
+			and p.id != #{id}
+		</if>
+	</select>
+
+	<!-- 商品出库 -->
+	<update id="reduceStockById">
+		update product
+		set total = #{stockNow}
+		,version = version + 1
+		where id = #{productId} and delete_flag = 0 and version = #{version}
+	</update>
+
+	<!-- 订单取消，商品入库 -->
+	<update id="batchUpdateQuantity">
+			<foreach collection="list" item="item" separator=";">
+				update
+				product p 
+				<set>
+					p.total = p.total + #{item.quantity}
+					,p.version = p.version + 1
+				</set>
+				where p.id = #{item.productId}
+			</foreach>
+	</update>
+	
+	<select id="getShortageOfStockNumber" resultType="long" parameterType="com.youmu.mall.product.query.ProductQuery">
+		select
+		count(p.id)
+		from product p
+		left join business b on b.id = p.business_id and b.delete_flag = 0
+		left join business_type bt on bt.id = b.type_id and bt.delete_flag = 0
+		<include refid="WhereSql" />
+	</select>
+	
+	<update id="updateSaleCount">
+		update product
+			set sale_count = sale_count + #{quantity}
+		where delete_flag = 0 and id = #{productId}
+	</update>
+	
+</mapper>

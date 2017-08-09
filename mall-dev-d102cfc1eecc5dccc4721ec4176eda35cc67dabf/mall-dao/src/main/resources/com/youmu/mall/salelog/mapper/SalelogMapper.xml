@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.salelog.dao.SalelogDao" >
+
+  <sql id="WhereSql">
+  	<where>
+  		sl.delete_flag = 0
+  		<if test="beginDate != null">
+  			and sl.gmt_create >= #{beginDate}
+  		</if>
+  		<!-- 默认起始时间 -->
+  		<if test="beginDate == null">
+  			and sl.gmt_create >= str_to_date('2017-01-01 00:00:00','%Y-%m-%d %H:%i:%s')
+  		</if>
+  		<!-- endDate的时间需要用函数来补全 -->
+  		<if test="endDate != null">
+  			and sl.gmt_create &lt;= date_sub(#{endDate},interval -1 day)
+  		</if>
+  		<!-- 默认结束时间 ： 当前时间 -->
+  		<if test="endDate == null">
+  			and sl.gmt_create &lt;= date_sub(NOW(),interval -1 day)
+  		</if>
+  	</where>
+  </sql>
+  
+  <sql id="PageSql">
+    <if test="startRow != null and pageSize != null">
+      limit #{startRow}, #{pageSize}
+    </if>
+  </sql>
+  
+  <!-- 默认显示前一天的销售数据 -->
+  <select id="getSalelogSysList" resultType="com.youmu.mall.salelog.vo.SalelogSysVo" parameterType="com.youmu.mall.salelog.query.SalelogQuery">
+    select
+    	bt.name businessTypeName
+	   	,SUM(sl.amount) amount
+	   	,SUM(sl.quantity) quantity
+    from sale_log sl
+    left join business_type bt on bt.id = sl.business_type_id and bt.delete_flag = 0
+    <include refid="WhereSql" />
+    group by sl.business_type_id
+    <include refid="PageSql" />
+  </select>
+  
+  
+  
+  <insert id="insert" parameterType="com.youmu.mall.salelog.domain.Salelog" useGeneratedKeys="true" keyColumn="id" keyProperty="id">
+    insert into sale_log 
+    (
+      user_id,
+      business_type_id,
+      amount,
+      quantity,
+      gmt_create,
+      delete_flag 
+     )
+    values 
+    (
+      #{userId}
+      ,#{businessTypeId}
+      ,#{amount}
+      ,#{quantity}
+      ,now()
+      ,0
+     )
+  </insert>
+  
+  <select id="getByCount" resultType="long" parameterType="com.youmu.mall.banner.query.BannerQuery">
+  	SELECT
+		COUNT(count_result.result)
+	FROM	
+	(
+		SELECT
+		COUNT(sl.id) result
+		from sale_log sl
+		<include refid="WhereSql" />
+		group by sl.business_type_id
+	) count_result
+  </select>
+  
+</mapper>

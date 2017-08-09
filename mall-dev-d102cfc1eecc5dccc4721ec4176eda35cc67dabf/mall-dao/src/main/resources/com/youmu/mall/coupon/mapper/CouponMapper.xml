@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.coupon.dao.CouponDao" >
+  
+  <!-- 添加一种优惠券-->
+  <insert id="insertCoupon" parameterType="com.youmu.mall.coupon.domain.Coupon">
+		insert into coupon
+		(
+			name ,
+			amount ,
+			business_type_id ,
+			business_id ,
+			gmt_issue_start ,
+			gmt_issue_end ,
+			gmt_start ,
+			gmt_end ,
+			total ,
+			issue_limit ,
+			use_amount ,
+			is_dcr,
+			gmt_create
+		)
+		values(
+		  #{name},
+		  #{amount},
+		  #{businessType.id},
+		  #{business.id},
+		  #{gmtIssueStart},
+		  #{gmtIssueEnd},
+		  #{gmtStart},
+		  #{gmtEnd},
+		  #{total},
+		  #{issueLimit},
+		  #{useAmount},
+		  #{isDCR},
+		  now()
+		)
+  </insert>
+  
+  <sql id="SysWhereSql">
+     <where>
+       c.delete_flag = 0
+       
+       <if test="keywords != null and keywords != ''">
+        and c.name like concat('%', #{keywords},'%')
+       </if>
+       
+       <if test="businessTypeId != null">
+        and t.id = #{businessTypeId}
+       </if>
+       
+       <if test="businessId != null">
+        and b.id = #{businessId}
+       </if>
+       
+       <if test="issueStatus != null and issueStatus == 1">
+        and c.gmt_issue_end &gt;= CURDATE()
+       </if>
+       
+       <if test="issueStatus != null and issueStatus == 2">
+        and c.gmt_issue_end &lt; CURDATE()
+       </if>
+       
+       <if test="status != null and status == 1">
+        and c.gmt_end &gt;= CURDATE()
+       </if>
+       
+       <if test="status != null and status == 2">
+        and c.gmt_end &lt; CURDATE()
+       </if>
+    </where>
+  </sql>
+  <sql id="ShopUserWhereSql">
+     <where>
+        uc.user_id = #{uid} and uc.delete_flag = 0
+      <if test="status == 0">
+        and uc.used = 0 and c.gmt_end >= CURDATE()
+      </if>
+      <if test="status == 1">
+        and uc.used = 1
+      </if>
+      <if test="status == 2">
+        and uc.used = 0 and c.gmt_end &lt; CURDATE()
+      </if>
+    </where>
+  </sql>
+  
+  <sql id="PageSql">
+     <if test="startRow != null and pageSize != null">
+      limit #{startRow}, #{pageSize}
+     </if>
+  </sql>
+   <!-- 后台优惠券查询-->
+  <select id="selectSysCouponCount" parameterType="com.youmu.mall.coupon.query.CouponSysQuery" resultType="long">
+    select 
+      count(c.id)
+    from coupon c
+    left join business b on  c.business_id = b.id and b.delete_flag = 0
+    left join business_type t on t.id = c.business_type_id and t.delete_flag = 0
+    <include refid="SysWhereSql" />
+  </select>
+  
+   <!-- 后台优惠券查询-->
+  <select id="selectSysCouponList" parameterType="com.youmu.mall.coupon.query.CouponSysQuery" resultType="com.youmu.mall.coupon.vo.CouponSysListVo">
+    select 
+      c.name,
+      c.amount,
+      t.name as typeName,
+      if(c.business_id is null, '通用', b.name) as useLimit,
+      c.issue_limit as issueLimit ,
+      concat(c.gmt_issue_start, '到' , c.gmt_issue_end) as issueDateRange,
+      concat(c.gmt_start, '到', c.gmt_end) as useDateRange,
+      total
+    from coupon c
+    left join business b on  c.business_id = b.id and b.delete_flag = 0
+    left join business_type t on t.id = c.business_type_id and t.delete_flag = 0
+    <include refid="SysWhereSql" />
+    <include refid="PageSql" />
+  </select>
+  
+   <!-- shop优惠券查询 -->
+  <select id="selectShopCouponList" parameterType="com.youmu.mall.coupon.query.CouponShopQuery" resultType="com.youmu.mall.coupon.vo.CouponShopListVo">
+    SELECT
+      c.id id,
+      c.name couponName,
+      t.`name` typeName,
+      t.icon typeIcon,
+      ifnull(c.is_dcr, false) isDecorate,
+      concat('限线下', if(c.business_id is null, concat('所有 ', t.name, ' 类型'), b.name), '商户使用') useIntro,
+      c.gmt_start gmtStart,
+      c.gmt_end gmtEnd,
+      if(count(uc.id) &lt; c.issue_limit, -1, 0) status,
+      SUBSTRING_INDEX(GROUP_CONCAT(uuc.id order by uc.gmt_create desc), ',', 1) detailId
+    FROM
+      coupon c
+    LEFT JOIN  user_coupon uc on uc.coupon_id = c.id and uc.delete_flag = 0 and uc.user_id = #{uid}
+    LEFT JOIN  user_coupon uuc on uuc.coupon_id = c.id and uuc.delete_flag = 0 and uuc.used = 0 and uuc.user_id = #{uid}
+    LEFT JOIN business_type t ON t.id = c.business_type_id AND t.delete_flag = 0
+    LEFT JOIN  business b on b.id = c.business_id and b.delete_flag = 0
+    where c.delete_flag = 0 and c.issued &lt; c.total 
+    and c.gmt_issue_end >= current_date() and c.gmt_issue_start &lt;= current_date() 
+    and c.gmt_end &gt;= current_date()
+    <if test="onlyDcr != null and onlyDcr">
+    	and c.is_dcr = true
+    </if>
+    <!-- 可以使用的数量大于 0 或 领取的数量小于数量限制 -->
+    group by c.id having count(uuc.id) > 0 or count(uc.id) &lt; sum(DISTINCT c.issue_limit)
+    <include refid="PageSql" />
+  </select>
+  
+   <!-- shop我的优惠券查询 -->
+  <select id="selectShopUserCouponList" parameterType="com.youmu.mall.coupon.query.CouponShopQuery" resultType="com.youmu.mall.coupon.vo.UserCouponShopListVo">
+      SELECT
+      uc.id id,
+      c.name couponName,
+      c.id couponId,
+      t.`name` typeName,
+      c.is_dcr isDecorate,
+      concat('限线下', if(c.business_id is null, concat('所有 ', t.name, ' 类型'), b.name), '商户使用') useIntro,
+      c.gmt_start gmtStart,
+      c.gmt_end gmtEnd
+      <if test="status != null">
+        ,#{status} status
+      </if>
+    FROM
+      user_coupon uc
+    LEFT JOIN coupon c ON c.id = uc.coupon_id AND c.delete_flag = 0
+    LEFT JOIN  business b on b.id = c.business_id and b.delete_flag = 0 
+    LEFT JOIN business_type t ON t.id = c.business_type_id AND t.delete_flag = 0
+	<include refid="ShopUserWhereSql" />
+    <include refid="PageSql" />
+  </select>
+  
+   <!-- shop优惠券查询详情 -->
+  <select id="selectShopCouponDetail" parameterType="long" resultType="com.youmu.mall.coupon.vo.CouponShopDetailVo">
+      SELECT
+      uc.id id,
+      case when uc.used = 0 and c.gmt_end >= CURDATE() then 0 when uc.used = 1 then 1 else 2 end `status`,
+      c.id couponId,
+      coupon_no couponNo,
+      t.`name` typeName,
+      concat('限线下', if(c.business_id is null, concat('所有 ', t.name, ' 类型'), b.name), '商户使用') useIntro,
+      c.gmt_start gmtStart,
+      c.gmt_end gmtEnd
+    FROM
+      user_coupon uc
+    LEFT JOIN coupon c ON c.id = uc.coupon_id AND c.delete_flag = 0
+    LEFT JOIN  business b on b.id = c.business_id and b.delete_flag = 0 
+    LEFT JOIN business_type t ON t.id = c.business_type_id
+    AND b.delete_flag = 0
+    WHERE uc.id = #{id}
+  </select>
+  
+   <!-- shop优惠券查询详情 -->
+  <select id="selectUserCouponIssueInfo" resultType="com.youmu.mall.coupon.domain.UserCouponIssueInfo">
+    SELECT
+      uc.user_id userId,
+		  c.id couponId,
+		  ifnull(c.is_dcr, false) isDCR,
+		  c.total,
+		  c.issue_limit issueLimit,
+		  count(uc.coupon_id) issueCount,
+		  c.issued issueTotal
+		FROM
+			coupon c
+			left join
+		  user_coupon uc ON c.id = uc.coupon_id
+		AND c.delete_flag = 0
+		  left join business_type t on t.id = c.business_type_id and t.delete_flag = 0
+		WHERE uc.user_id = #{userId} and c.id = #{couponId}
+  </select>
+  
+   <!-- shop优惠券查询详情 -->
+  <select id="selectCouponVerificationInfo" parameterType="string"  resultType="com.youmu.mall.coupon.domain.CouponVerificationInfo">
+    SELECT
+    	    if(c.gmt_start &lt;= current_date(), true, false) isStart,
+			if(c.gmt_end &lt; current_date() , true, false) isExpire, 
+			c.business_type_id as businessType,
+			c.business_id,     
+			uc.is_dcr isDCR,
+			uc.used isUsed
+		FROM
+			user_coupon uc
+			left join
+		  coupon c ON c.id = uc.coupon_id AND uc.delete_flag = 0
+		WHERE uc.coupon_no = #{couponNo}
+  </select>
+  
+   <!-- 优惠券领取 -->
+  <insert id="issueCoupon" parameterType="com.youmu.mall.coupon.domain.UserCoupon" useGeneratedKeys="true" keyProperty="id">
+    insert into user_coupon
+    (
+      user_id,
+      coupon_id,
+      coupon_no,
+      is_dcr,
+      gmt_issued,
+      gmt_create
+    )
+    values
+    (
+      #{userId},
+      #{couponId},
+      #{couponNo},
+      #{isDCR},
+      now(),
+      now()
+    )
+  </insert>
+  
+   <!-- 修改优惠券领取的总数 -->
+  <insert id="updateCouponIssueCount" parameterType="long">
+    update coupon
+      set issued = issued + 1
+    where id = #{id} and delete_flag = 0
+  </insert>
+  
+   <!-- 修改优惠券使用信息 -->
+  <insert id="updateCouponUseInfo">
+    update user_coupon
+      set used = 1, gmt_used = now(), use_business_id = #{businessId}, use_user_id  = #{userId}
+    where coupon_no = #{couponNo} and delete_flag = 0
+  </insert>
+  
+   <!-- 查询优惠券核销历史 -->
+  <select id="selectVerifiHistoryCouponList" parameterType="com.youmu.mall.coupon.query.CouponVerifiHistoryPageQuery" resultType="com.youmu.mall.coupon.vo.CouponVerifiHistoryListVo">
+    select 
+      uc.coupon_no couponNo, 
+      u.mobile userMobile,
+      <if test="isDcr !=null and isDcr">
+        if(dc.order_status = 3 or dc.order_status = 5 or dc.order_status = 7, false, true) isComplete,
+        dc.order_no orderNo
+      </if>
+      <if test="isDcr ==null or !isDcr">
+        true isComplete
+      </if>  
+    from user_coupon uc 
+		left join user u on u.id = uc.user_id
+		<if test="isDcr !=null and isDcr">
+		  left join dcr_order dc on uc.coupon_no = dc.coupon_no
+    </if>
+		where uc.use_user_id = #{verifiUserId} and uc.delete_flag = 0 and uc.used = 1
+		  <if test="isDcr !=null and isDcr">
+        and is_dcr = 1
+      </if>
+		  <if test="orderStatus !=null">
+        and dc.order_status = #{orderStatus}
+      </if>
+      <if test="orderStatusLsit != null">
+        and dc.order_status in
+        <foreach collection="orderStatusLsit" item="item" open="(" close=")" separator=",">
+            #{item}
+        </foreach>
+      </if>
+		  <if test="minOrderStatus !=null">
+        and dc.order_status &gt;= #{minOrderStatus}
+      </if>
+      <if test="isDcr ==null or !isDcr">
+        and is_dcr = 0
+      </if>
+      order by uc.gmt_create desc
+	<include refid="PageSql" />
+  </select>
+  
+  <!-- CouponUsedWhereSql -->
+  <sql id="CouponUsedWhereSql">
+  	<if test="gmtUsedStart != null">
+  	 and uc.gmt_used &gt;= #{gmtUsedStart}
+  	</if>
+  	<if test="gmtUsedEnd != null">
+  	 and uc.gmt_used &lt;= #{gmtUsedEnd}
+  	</if>
+  </sql>
+  
+  <!-- 查询优惠券使用统计信息总数 -->
+  <select id="selectCouponUsedStatisticsInfoCount" resultType="long" parameterType="com.youmu.mall.coupon.query.CouponStatisticsInfoQuery">
+  	select count(DISTINCT c.id)
+  	from coupon c
+  	left join user_coupon uc on uc.coupon_id = c.id
+  	left join business_type bt on bt.id = c.business_type_id
+  	where c.delete_flag = 0
+  	<include refid="CouponUsedWhereSql" />
+  </select>
+  
+  <!-- 查询优惠券使用信息统计列表 -->
+  <select id="selectCouponUsedStatisticsInfoList" parameterType="com.youmu.mall.coupon.query.CouponStatisticsInfoQuery" resultType="com.youmu.mall.coupon.vo.CouponUsedStatisticsVo">
+  	select
+	   bt.name typeName,
+	   sum(if(uc.used=1, 1, 0)) usedNum,
+	   count(uc.id) issuedNum,
+	   sum(if(current_date() &gt; c.gmt_end and uc.used = 0, 1, 0)) expiredNum,
+	   min(uc.gmt_issued) gmtUsedFrom,
+	   max(uc.gmt_issued) gmtUsedTo
+  	from coupon c
+  	left join user_coupon uc on uc.coupon_id = c.id
+  	left join business_type bt on bt.id = c.business_type_id
+  	where c.delete_flag = 0
+  	<include refid="CouponUsedWhereSql" />
+    group by c.id
+  	<include refid="PageSql" />
+  </select>
+  
+</mapper>

@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.bus.dao.BusinessUserDao" >
+
+    <!-- 查询商户账户重复的数量 -->
+   <select id="selectBusinessUserRepeatCount" parameterType="com.youmu.mall.user.domain.BusinessUser" resultType="long">
+      select count(id) from business_user
+      <where>
+        delete_flag = 0
+        <if test="account != null">
+          and account = #{account}
+        </if>
+        <if test="id != null">
+          and id != #{id}
+        </if>
+      </where>
+   </select>
+   
+   <!-- 添加一个商户账户 -->
+   <insert id="insertBusinessUser" parameterType="com.youmu.mall.user.domain.BusinessUser">
+    insert into business_user 
+    (
+	    account,
+		username,
+		password,
+		business_id,
+		type,
+		is_dcr,
+		gmt_create
+    )
+    values
+    (
+	    #{account},
+	    #{username},
+	    #{password},
+	    #{business.id},
+	    #{type},
+	    #{isDCR},
+	    now()
+    )
+   </insert>
+   
+   <resultMap type="com.youmu.mall.user.domain.BusinessUser" id="BusinessUserResultMap" autoMapping="true">
+   		<id column="id" property="id" />
+   		<association property="business" javaType="com.youmu.mall.bus.domain.Business">
+   			<id property="id" column="business_id" />
+   		</association>
+   </resultMap>
+   
+   <!-- 查询一个商户账户 -->
+   <select id="getBusinessUserById" parameterType="long" resultMap="BusinessUserResultMap">
+    select 
+	    account account,
+		username username,
+		business_id,
+		type type,
+		is_dcr isDCR,
+		gmt_create gmtCreate
+    from
+    business_user 
+    where id = #{id}
+   </select>
+   
+  <!-- 删除一个商户类型 -->
+  <update id="deleteBusinessUser" parameterType="long">
+    update business_user
+    set delete_flag = 1
+    where id = #{id} and delete_flag = 0
+  </update>
+   
+   <!-- 修改一个商户账户 -->
+   <insert id="updateBusinessUser" parameterType="com.youmu.mall.user.domain.BusinessUser">
+    update business_user
+    <set>
+      <if test="account != null">
+        account = #{account},
+      </if>
+      <if test="username != null">
+        username = #{username},
+      </if>
+      <if test="status != null">
+        status = #{status},
+      </if>
+      <if test="business != null and business.id != null">
+        business_id = #{business.id},
+      </if>
+      <if test="password != null">
+        password = #{password},
+      </if>
+      <if test="isDCR != null">
+        is_dcr = #{isDCR},
+      </if>
+      <if test="type != null">
+        type = #{type},
+      </if>
+     </set>
+     where id = #{id} and delete_flag = 0
+   </insert>
+   
+   <sql id="WhereSql">
+    <where>
+      u.delete_flag = 0
+      <if test="businessId != null">
+      	and u.business_id = #{businessId}
+      </if>
+      <if test="isDCR != null">
+      	and u.is_dcr = #{isDCR}
+      </if>
+       <if test="type != null">
+      	and u.type = #{type}
+      </if>
+    </where>
+   </sql>
+   
+   <sql id="PageSql">
+    <if test="startRow != null and pageSize != null">
+      limit #{startRow}, #{pageSize}
+    </if>
+  </sql>
+  
+  <!-- 查询商户的数量 -->
+  <select id="selectBusinessUserCount" parameterType="com.youmu.mall.user.query.BusinessUserQuery" resultType="long">
+    select count(u.id) from 
+    business_user u
+    left join 
+    business b on u.business_id = b.id and b.delete_flag = 0
+    left join
+    business_type t on t.id = b.type_id and t.delete_flag = 0
+    <include refid="WhereSql" />
+  </select>
+  
+    <!-- 查询商户分页 -->
+  <select id="selectBusinessUserList" parameterType="com.youmu.mall.user.query.BusinessUserQuery" resultType="com.youmu.mall.user.vo.BusinessUserListVo">
+    select 
+      u.id,
+      u.account,
+      case u.type when 1 then '商户账户' when 2  then '银行账户' when 3 then '后台账户' else '' end userType,
+	  case u.type when 1 then '商户前端' when 2  then '银行前端' when 3 then '商户后台' else '' end useType,
+      b.name as businessName,
+      t.name as typeName
+    from 
+    business_user u
+    left join 
+    business b on u.business_id = b.id and b.delete_flag = 0
+    left join
+    business_type t on t.id = b.type_id and t.delete_flag = 0
+    <include refid="WhereSql" />
+    <include refid="PageSql" />
+  </select>
+  
+  
+	<resultMap id="BusinessUserMap" type="com.youmu.mall.user.domain.BusinessUser" autoMapping="true">
+	  <id property="id" column="id"/>
+	  <association property="business" javaType="com.youmu.mall.bus.domain.Business">
+	     <id property="id" column="businessId"/>
+	     <association property="type" javaType="com.youmu.mall.bus.domain.BusinessType">
+       <id property="id" column="businessTypeId"/>
+    </association> 
+	  </association> 
+	</resultMap>
+  
+  <!-- 查询商户登录信息 -->
+  <select id="selectBusinessUserLoginInfo" parameterType="string" resultMap="BusinessUserMap">
+    select 
+      u.id,
+      u.account,
+      u.password,
+      u.username,
+      u.type,
+      u.business_id businessId,
+      b.type_id businessTypeId,
+      u.is_dcr isDCR
+    from 
+    business_user u
+    left join business b on b.id = u.business_id
+    where account = #{account} and u.delete_flag = 0 and u.status = 0
+  </select>
+   
+  <!-- 查询登录了的商户登录信息 -->
+  <select id="selectLoggedBusinessInfo" parameterType="long" resultType="com.youmu.mall.user.vo.LoggedBusinessUserVo">
+    select 
+      u.account,
+      b.name businessName,
+      b.auth_pass authPass,
+      u.is_dcr isDCR,
+      b.type_id businessTypeId,
+      u.type type
+    from 
+    business_user u
+    left join
+    business b on b.id = u.business_id and b.delete_flag = 0
+    where u.delete_flag = 0 and u.id=#{id}
+  </select>
+  
+  <!-- 修改商户的登录密码 -->
+  <update id="updateBusinessUserPassword">
+    update
+    business_user
+    set
+    password = #{newPassword}
+    where delete_flag = 0 and status = 0 and id=#{id} and password = #{oldPassword}
+  </update>
+   
+</mapper>

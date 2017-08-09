@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.permission.dao.SysRoleDao">
+	
+	<!-- 添加一个菜单 -->
+	<insert id="insertSysRole" parameterType="com.youmu.mall.sys.domain.SysRole" useGeneratedKeys="true" keyProperty="id">
+		insert into sys_role (name, gmt_create)
+		values(#{name}, now())
+	</insert>
+	
+	<!-- 修改一个菜单 -->
+	<update id="updateById" parameterType="com.youmu.mall.sys.domain.SysRole">
+		update sys_role
+		<set>
+			<if test="name != null and name != ''">
+				name = #{name},
+			</if>
+		</set>
+		where id = #{id}
+	</update>
+	
+	<!-- 删除通过id -->
+	<update id="deleteById" parameterType="long">
+		update sys_role
+		set delete_flag = 1
+		where id = #{id}
+	</update>
+	
+	<!-- 查询一个系统菜单 -->
+	<select id="selectById" parameterType="long" resultType="com.youmu.mall.sys.domain.SysRole">
+		select
+			r.id,
+			r.name
+		from sys_role r
+		where m.id = #{id}
+	</select>
+	
+	<!-- 添加角色和菜单的关联关系 -->
+	<insert id="insertRoleMenuRelationship" parameterType="com.youmu.mall.sys.domain.SysRole">
+		insert into sys_role_menu
+		(role_id, menu_id)
+		values
+		<foreach collection="menus" item="menu" separator=",">
+			(#{id}, #{menu.id})
+		</foreach>
+	</insert>
+	
+	<!-- 删除角色和菜单的关联关系 -->
+	<delete id="deleteRoleMenuRelationship" parameterType="long">
+		delete from sys_role_menu where role_id = #{roleId}
+	</delete>
+	
+	<!-- 查询角色的重复数量 -->
+	<select id="selectRepeatCount" parameterType="com.youmu.mall.sys.domain.SysRole" resultType="long">
+		select 
+			count(id)
+		from sys_role
+		where name = #{name} 
+		<if test="id != null">
+			and id != #{id}
+		</if> 
+	</select>
+	
+	<sql id="PageSql">
+		<if test="startRow != null and pageSize != null">
+			limit #{startRow}, #{pageSize}
+		</if>
+	</sql>
+	
+	<!-- 查询系统角色的数量 -->
+	<select id="selectSysRoleCount" parameterType="com.youmu.mall.base.query.PageQuery" resultType="long">
+		select 
+			count(id) 
+		from sys_role
+		where delete_flag = 0
+	</select>
+	
+	<!-- 查询系统角色的数量 -->
+	<select id="selectSysRoleList" parameterType="com.youmu.mall.base.query.PageQuery" resultType="com.youmu.mall.sys.vo.SysRoleListVo">
+		select 
+			id,
+			name,
+			gmt_create gmtCreate
+		from sys_role
+		where delete_flag = 0
+		order by gmt_create desc
+		<include refid="PageSql" />
+	</select>
+	
+	<!-- 查询所有的系统角色 -->
+	<select id="selectAllSysRole" resultType="com.youmu.mall.sys.vo.SysRoleListVo">
+		select id, name
+		from sys_role
+		where delete_flag = 0
+		order by gmt_create desc
+	</select>
+	
+	<resultMap type="com.youmu.mall.sys.vo.SysRoleUpdateVo" id="RoleUpdateMap" autoMapping="true">
+		<id column="id" property="id" />
+		<collection property="menus" ofType="com.youmu.mall.sys.vo.SysMenuListVo">
+			<id column="m_id" property="id"/>
+			<result column="m_name" property="name" />
+			<result column="m_parentId" property="parentId" />
+		</collection>
+	</resultMap>
+	
+	<!-- 查询所有角色修改时的信息-->
+	<select id="selectUpdateRoleInfo" parameterType="long" resultMap="RoleUpdateMap">
+		select
+			r.id,
+			r.name, 
+			m.id m_id, m.name m_name, m.parent_id m_parentId
+		from
+		sys_role r
+		left join sys_role_menu rm on rm.role_id = r.id
+		left join sys_menu m on m.id = rm.menu_id and m.delete_flag = 0
+		where r.delete_flag = 0 and r.id = #{roleId}
+	</select>
+	
+</mapper>

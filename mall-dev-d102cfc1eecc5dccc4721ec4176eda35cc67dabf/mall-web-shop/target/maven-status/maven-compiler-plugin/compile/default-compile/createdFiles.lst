@@ -1,0 +1,12 @@
+com\youmu\mall\web\shop\banner\controller\BannerController.class
+com\youmu\mall\web\shop\balance\controller\BalanceChargeBillController.class
+com\youmu\mall\web\shop\filter\AuthorizationFilter.class
+com\youmu\mall\web\shop\config\SwaggerConfig.class
+com\youmu\mall\web\shop\dcr\controller\DCRRegisterController.class
+com\youmu\mall\web\shop\receiver\controller\ReceiverController.class
+com\youmu\mall\web\shop\wx\controller\WxController.class
+com\youmu\mall\web\shop\coupon\controller\CouponController.class
+com\youmu\mall\web\shop\dcr\controller\DCROrderController.class
+com\youmu\mall\web\shop\common\controller\ExceptionHandlerController.class
+com\youmu\mall\web\shop\cart\controller\CartController.class
+com\youmu\mall\web\shop\product\controller\ProductGroupController.class

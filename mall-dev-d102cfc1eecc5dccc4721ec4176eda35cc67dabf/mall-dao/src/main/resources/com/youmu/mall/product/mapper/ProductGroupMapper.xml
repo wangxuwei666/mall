@@ -1,0 +1,855 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.product.dao.ProductGroupDao">
+
+	<sql id="WhereSql">
+		<where>
+			<if test="keywords != null">
+				pg.name like concat('%',#{keywords},'%')
+			</if>
+			<!-- status == 0 ：未开始 -->
+			<if test="status == 0">
+				and pg.gmt_start > DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+			</if>
+			<!-- status == 1 ：秒杀中 -->
+			<if test="status == 1">
+				and pg.gmt_end > DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') and pg.gmt_start &lt;= DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+			</if>
+			<!-- status == 2 ：已完成 -->
+			<if test="status == 2">
+				and pg.gmt_end &lt; DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+			</if>
+			<if test="groupType != null">
+				and pg.group_type = #{groupType}
+			</if>
+			and pg.delete_flag = 0
+		</where>
+	</sql>
+	
+  <sql id="PageSql">
+    <if test="startRow != null and pageSize != null">
+      limit #{startRow}, #{pageSize}
+    </if>
+  </sql>
+
+	<!-- 管理后台-促销管理-商品组列表 -->
+	<select id="getProductGroupSysVo" resultType="com.youmu.mall.product.vo.ProductGroupSysVo" parameterType="com.youmu.mall.product.query.ProductGroupQuery">
+		select
+		pg.id
+		,pg.name
+		,pg.rest_quantity restQuantity
+		,pg.gmt_start gmtStart
+		,pg.gmt_end gmtEnd
+		,pg.gmt_create gmtCreate
+		from product_group pg
+		<include refid="WhereSql" />
+		<include refid="PageSql" />
+	</select>
+	
+	<select id="getProductGroupSysVoByCount" resultType="long" parameterType="com.youmu.mall.product.query.ProductGroupQuery">
+		select count(pg.id)
+		from product_group pg
+		<include refid="WhereSql" />
+	</select>
+	
+	<resultMap type="com.youmu.mall.product.vo.ProductGroupEditVo" id="ProductGroupDetailSysVoMap">
+		<id column="id" property="id"/>
+		<result column="groupName" property="name"/>
+		<result column="limitQuantity" property="limitQuantity"/>
+		<result column="gmtStart" property="gmtStart"/>
+		<result column="gmtEnd" property="gmtEnd"/>
+		<result column="groupImg" property="groupImg"/>
+		<collection property="detailVos" ofType="com.youmu.mall.product.vo.ProductGroupDetailSysVo">
+			<result property="productId" column="productId"/>
+			<result column="name" property="name"/>
+			<result column="oldPrice" property="oldPrice"/>
+			<result column="promotionPrice" property="promotionPrice"/>
+			<result column="price" property="price"/>
+			<result column="backdays" property="backdays"/>
+			<result column="quantity" property="quantity"/>
+			<result column="total" property="total"/>
+		</collection>
+	</resultMap>
+	
+	<select id="getProductGroupDetailSysVoByGroupId" resultMap="ProductGroupDetailSysVoMap">
+		select
+			pg.id
+			,pg.name groupName
+			,pg.limit_quantity limitQuantity
+			,DATE_FORMAT(pg.gmt_start,"%Y-%m-%d %H:%i:%s") gmtStart
+			,DATE_FORMAT(pg.gmt_end,"%Y-%m-%d %H:%i:%s") gmtEnd
+			,pg.group_img groupImg
+			,p.id productId
+			,p.name
+			,p.old_price oldPrice
+			,p.promotion_price promotionPrice
+			,p.total 
+			,pgd.quantity
+			,pgd.price
+			,pgd.backdays
+		from product_group pg
+		left join product_group_detail pgd on pgd.group_id = pg.id and pgd.delete_flag = 0
+		left join product p on pgd.product_id = p.id and p.delete_flag = 0 and p.status = 1
+		left join business b on b.id = p.business_id and b.delete_flag = 0
+		<where>
+			<!-- status == 0 ：未开始 -->
+			<if test="status == 0">
+				and pg.gmt_start > DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+			</if>
+			<!-- status == 1 ：秒杀中 -->
+			<if test="status == 1">
+				and pg.gmt_end > DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') and pg.gmt_start &lt;= DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+			</if>
+			<!-- status == 2 ：已完成 -->
+			<if test="status == 2">
+				and pg.gmt_end &lt; DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+			</if>
+			<if test="groupId != null">
+				and pg.id = #{groupId} 
+			</if>
+			and pg.delete_flag = 0
+		</where>
+	</select>
+
+	<insert id="insertAndGetId" parameterType="com.youmu.mall.product.domain.ProductGroup"
+		useGeneratedKeys="true" keyColumn="id" keyProperty="id">
+		insert into product_group (
+		name
+		,total_quantity
+		,limit_quantity
+		,rest_quantity
+		,group_type
+		,group_img
+		,gmt_start
+		,gmt_end
+		,gmt_create
+		,delete_flag
+		)
+		values (
+		#{name}
+		,#{totalQuantity}
+		,#{limitQuantity}
+		,#{totalQuantity}
+		,#{groupType}
+		, #{groupImg}
+		, #{gmtStart}
+		,#{gmtEnd}
+		,now()
+		,0
+		)
+	</insert>
+	
+	<insert id="batchSaveGroupItems">
+  	insert into product_group_detail
+  	(
+  		group_id
+  		,product_id
+  		,quantity
+  		,total_quantity
+  		,remark
+  		,price
+  		,backdays
+  		,gmt_create
+  		,delete_flag
+  	)
+  	values
+  	<foreach collection="items" item="item" separator=",">
+  	(
+  		#{groupId}
+  		,#{item.productId}
+  		,#{item.quantity}
+  		,#{item.quantity}
+  		,#{item.remark}
+  		,#{item.price}
+  		,#{item.backdays}
+  		,now()
+  		,0
+  	)
+  	</foreach>
+  </insert>
+  
+  <select id="getNotReduceProductIds" resultType="long">
+  	SELECT
+		p.id
+	FROM
+	product p
+	left join business b on b.id = p.business_id and b.delete_flag = 0
+	WHERE 
+		p.status = 1 
+		and p.delete_flag = 0 
+		and b.gmt_end >= NOW() 
+		and b.gmt_start &lt;= NOW()
+		and p.id 
+	NOT IN 
+	(
+		SELECT
+			pgd.product_id productId
+		FROM
+		product_group_detail pgd
+		LEFT JOIN product_group pg on pg.id = pgd.group_id and pg.delete_flag = 0 
+		LEFT JOIN product p on p.id = pgd.product_id and p.delete_flag = 0
+			
+		where pgd.delete_flag = 0 
+		and
+		(
+			(
+				  pg.group_type = 1 and 
+		  	  (
+		  	  	<!-- 正在秒杀中的商品 -->
+				 (pg.gmt_end>DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') and pg.gmt_start &lt;= DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s'))
+				 <!-- 将要进行秒杀的商品 -->
+				 	OR 
+				  pg.gmt_start>DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+			  ) 
+			)
+			OR 
+				(pg.group_type = 2)
+			OR
+			    (pg.group_type = 4)
+		)
+	)
+  </select>
+  
+  <!-- 查询当前未参加活动的商品信息 -->
+  <select id="getNotReduceProduct" resultType="com.youmu.mall.product.vo.ProductSysVo" parameterType="com.youmu.mall.product.query.ProductGroupQuery">
+  	SELECT
+	p.id
+	,p.`name`
+	,p.old_price oldPrice
+	,p.promotion_price promotionPrice
+	,p.total
+	FROM
+	product p
+	left join business b on b.id = p.business_id and b.delete_flag = 0
+	WHERE 
+		p.status = 1 
+		and p.delete_flag = 0 
+		and b.gmt_end >= NOW() 
+		and b.gmt_start &lt;= NOW()
+		and p.id 
+	NOT IN 
+	(
+		SELECT
+			pgd.product_id productId
+		FROM
+		product_group_detail pgd
+		LEFT JOIN product_group pg on pg.id = pgd.group_id and pg.delete_flag = 0 
+		LEFT JOIN product p on p.id = pgd.product_id and p.delete_flag = 0
+		where pgd.delete_flag = 0 
+		and
+		(
+			(
+				  pg.group_type = 1 and 
+		  	  (
+		  	  	<!-- 正在秒杀中的商品 -->
+				 (pg.gmt_end>DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') and pg.gmt_start &lt;= DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s'))
+				 <!-- 将要进行秒杀的商品 -->
+				 	OR 
+				  pg.gmt_start>DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+			  ) 
+			)
+			OR 
+				(pg.group_type = 2)
+			OR
+				(pg.group_type = 4)
+		)
+	)
+	
+	<if test="keywords != null">
+		and p.name like concat('%',#{keywords},'%')
+	</if>
+	<if test="startRow !=null and pageSize != null">
+		limit #{startRow},#{pageSize}
+	</if>
+  </select>
+  
+  
+  <select id="getCountByNotReduceProduct" resultType="long" parameterType="com.youmu.mall.base.query.PageQuery">
+  		select 
+  			count(p.id)
+  		FROM
+		product p
+		left join business b on b.id = p.business_id and b.delete_flag = 0
+		WHERE p.status = 1 and p.delete_flag = 0 
+				and b.gmt_end >= NOW() 
+				and b.gmt_start &lt;= NOW()
+				and p.id NOT IN 
+		(
+		SELECT
+			pgd.product_id productId
+		FROM
+		product_group_detail pgd
+		LEFT JOIN product_group pg on pg.id = pgd.group_id and pg.delete_flag = 0 
+		LEFT JOIN product p on p.id = pgd.product_id and p.delete_flag = 0
+			
+		where pgd.delete_flag = 0 
+		and
+			(
+				  group_type = 1 and 
+		  	  (
+		  	  	 <!-- 正在秒杀中的商品 -->
+				 (pg.gmt_end>DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') and pg.gmt_start &lt;= DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s'))
+				 <!-- 将要进行秒杀的商品 -->
+				 	OR 
+				  pg.gmt_start>DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+			  ) 
+			OR 
+				(group_type = 2)
+			OR 
+				(group_type = 4)
+			)
+		)
+		<if test="keywords != null">
+			and p.name like concat('%',#{keywords},'%')
+		</if>
+  </select>
+  
+  <update id="update" parameterType="com.youmu.mall.product.domain.ProductGroup">
+  	update product_group
+  	<set>
+	  	<if test="name != null">
+	  		name = #{name},
+	  	</if>
+	  	<if test="totalQuantity != null">
+	  		total_quantity = #{totalQuantity},
+	  		rest_quantity = #{totalQuantity},
+	  	</if>
+	  	<if test="limitQuantity != null">
+	  		limit_quantity = #{limitQuantity},
+	  	</if>
+	  	<if test="groupImg != null">
+	  		group_img = #{groupImg},
+	  	</if>
+	  	<if test="gmtStart != null">
+	  		gmt_start = #{gmtStart},
+	  	</if>
+	  	<if test="gmtEnd != null">
+	  		gmt_end = #{gmtEnd},
+	  	</if>
+	  	<if test="groupType != null">
+	  		group_type = #{groupType}
+	  	</if>
+  	</set>
+  	where id=#{id}
+  </update>
+  
+  <!-- 根据活动组id查询活动明细 -->
+  <select id="selectProductGroupDetailsProductIdsByGroupId" resultType="long">
+  	select 
+  		product_id
+  	from product_group_detail
+  	where group_id = #{groupId} and delete_flag = 0
+  </select>
+  
+  <!-- 根据活动组id删除活动明细 -->
+  <update id="deleteProductGroupDetailsByGroupId">
+  	update product_group_detail
+  		set delete_flag = 1
+  	where group_id = #{groupId} and delete_flag = 0
+  </update>
+  
+  <!-- 根据活动组明细id删除活动明细 -->
+  <update id="deleteProductGroupDetailsById" parameterType="long">
+  	update product_group_detail
+  		set delete_flag = 1
+  	where id = #{id} and delete_flag = 0
+  </update>
+  
+  	<!-- 订单取消，商品入库 -->
+	<update id="batchUpdateGroupItems">
+		<foreach collection="list" item="item" separator=";">
+			update
+			product_group_detail d
+			<set>
+				d.quantity = d.quantity + #{item.quantity}
+			</set>
+			where d.product_id = #{item.productId} and d.id in
+			(
+				select a.pgdId FROM
+				(
+					select 	
+						pgd.id pgdId
+						,pgd.product_id productId
+					from product_group_detail pgd
+					LEFT JOIN product_group pg on pgd.group_id = pg.id and pg.delete_flag = 0
+					where pgd.delete_flag = 0 
+					and
+					(
+							group_type = 1 and 
+							(
+						 	(pg.gmt_end>DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') and pg.gmt_start &lt;= DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s'))
+								OR 
+						     pg.gmt_start>DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+							) 
+					
+						OR 
+							(group_type = 2)
+						OR
+						    (group_type = 4)
+					)
+				) a 
+			)
+		</foreach>
+	</update>
+	
+	<!-- 查询当前参与活动商品的 明细id，剩余活动数量，版本号 -->
+	<select id="getGroupInfoByProductId" resultType="com.youmu.mall.product.dto.GroupProductIngoDto">
+		select 	
+			pgd.id groupDetailId
+			,pgd.quantity
+			,pgd.version
+			,pgd.group_id groupId
+		from product_group_detail pgd
+		LEFT JOIN product_group pg on pgd.group_id = pg.id and pg.delete_flag = 0
+		where pgd.delete_flag = 0 
+		and
+		(
+			(
+				 pg.group_type = 1 
+			  and 
+				 (pg.gmt_end>DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') and pg.gmt_start &lt;= DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s'))
+		    )
+		  OR 
+			 (pg.group_type = 2)
+		  OR
+			 (pg.group_type = 4)
+		)
+		and pgd.product_id = #{productId}
+	</select>
+	
+	<!-- 更新库存商品表 -->
+	<update id="reduceGroupStockDetailById" parameterType="com.youmu.mall.product.dto.GroupProductIngoDto">
+		update
+		product_group_detail
+		set
+			quantity = #{quantity}
+			,version = version + 1
+		where id = #{groupDetailId} and version = #{version} and delete_flag = 0
+	</update>
+	
+	<select id="getBuyRecord" resultType="java.lang.Integer">
+		select
+			buy_quantity
+		from user_buy_record
+		where user_id = #{userId} and group_id = #{groupId} and delete_flag = 0
+	</select>
+	
+	<!-- 插入用户购物记录 -->
+	<insert id="insertBuyRecord" parameterType="com.youmu.mall.user.domain.UserBuyRecord">
+		insert into user_buy_record
+		(
+			user_id
+			,group_id
+			,buy_quantity
+			,gmt_create
+			,delete_flag
+		)
+		values
+		(
+			#{userId}
+			,#{groupId}
+			,#{buyQuantity}
+			,now()
+			,0
+		)
+	</insert>
+	
+	<select id="getById" resultType="com.youmu.mall.product.domain.ProductGroup">
+		select 
+			id
+			,name
+			,limit_quantity limitQuantity
+			,group_type groupType
+			,group_img groupImg
+			,gmt_end gmtEnd
+		from product_group
+		where id=#{groupId} and delete_flag = 0
+	</select>
+	
+	<update id="updateBuyRecord" parameterType="com.youmu.mall.user.domain.UserBuyRecord">
+		update
+			user_buy_record
+		set
+			buy_quantity = #{buyQuantity}
+		where user_id = #{userId} and group_id = #{groupId} and delete_flag = 0
+	</update>
+
+	<update id="subBuyRecord" parameterType="com.youmu.mall.user.domain.UserBuyRecord">
+		update
+		   user_buy_record
+		set	
+		   buy_quantity = buy_Quantity - #{buyQuantity}	
+		where user_id = #{userId} and group_id = #{groupId} and delete_flag = 0
+	</update>
+
+	<!-- 减少活动商品组 主表库存 -->
+	<update id="reduceGroupStockById">
+		update
+			product_group
+		set
+			rest_quantity = rest_quantity - #{quantity}
+		where id = #{groupId} and delete_flag = 0
+	</update>
+	
+	<!-- 增加活动商品组 主表库存 -->
+	<update id="increaseStockByGroupId">
+		update
+			product_group
+		set
+			rest_quantity = rest_quantity + #{quantity}
+		where id = #{groupId} and delete_flag = 0
+	</update>
+	
+	<!-- 删除 活动商品组 -->
+	<update id="deleteProductGroup">
+		update product_group
+		set delete_flag = 1
+		where id = #{id} and delete_flag = 0
+	</update>
+	
+	<resultMap id="productGroupShopVoMap" type="com.youmu.mall.product.vo.ProductGroupShopVo">
+		<id column="id" property="id"/>
+		<result column="gmtStart" property="gmtStart"/>
+		<result column="gmtEnd" property="gmtEnd"/>
+		<result column="groupImg" property="groupImg"/>
+		<result column="currentDate" property="currentDate"/>
+		<collection property="detailVos" ofType="com.youmu.mall.product.vo.ProductGroupDetailShopVo">
+			<result property="productId" column="productId"/>
+			<result property="productName" column="productName"/>
+			<result column="oldPrice" property="oldPrice"/>
+			<result column="price" property="price"/>
+			<result column="backdays" property="backdays"/>
+			<result column="remark" property="remark"/>
+			<result column="digest" property="digest"/>
+			<result column="thumbnail" property="thumbnail"/>
+			<result column="gmtFinish" property="gmtFinish"/>
+			<result column="quantity" property="quantity"/>
+			<result column="totalQuantity" property="totalQuantity"/>
+		</collection>
+	</resultMap>
+	
+	<!-- 用户端 - 活动商品组列表 -->
+	<select id="getProductGroupShopVo" resultMap="productGroupShopVoMap" parameterType="com.youmu.mall.product.query.ProductGroupQuery">
+		select
+			pg.id
+			,pg.gmt_start gmtStart
+			,pg.gmt_end gmtEnd
+			,pg.group_img groupImg
+			,NOW() currentDate
+			,p.id productId
+			,p.name productName
+			,p.old_price oldPrice
+			,p.digest
+			,p.thumbnail
+			,pgd.price
+			,pgd.backdays
+			,pgd.remark
+			,pgd.quantity 
+			,pgd.total_quantity totalQuantity
+			,pgd.gmt_finish gmtFinish
+		from  
+			(select pg.id
+				,pg.gmt_start 
+				,pg.gmt_end 
+				,pg.group_img 
+				from product_group pg
+				where pg.delete_flag = 0
+				<if test="groupType == 1">
+				and  pg.group_type = 1 
+				and 
+				 	(pg.gmt_end>DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') and pg.gmt_start &lt;= DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s'))
+				</if>
+				<if test="groupType == 2">
+					and  pg.group_type = 2
+				</if>
+				<if test="groupType == 3">
+					and  pg.group_type = 3
+				</if>
+				<if test="groupType == 4">
+					and  pg.group_type = 4
+				</if>
+				<if test="startRow !=null and pageSize != null">
+					limit #{startRow},#{pageSize}
+				</if>
+				) pg
+		left join product_group_detail pgd on pgd.group_id = pg.id and pgd.delete_flag = 0
+		left join product p on pgd.product_id = p.id and p.delete_flag = 0 and p.`status` = 1
+		left join business b on b.id = p.business_id and b.delete_flag = 0
+		where 
+			b.gmt_end >= NOW() 
+			and b.gmt_start &lt;= NOW()
+	</select>
+	
+	<!-- 用户端 - 活动积分组列表 -->
+	<select id="getProductGroupGetShopVo" resultMap="productGroupShopVoMap" parameterType="com.youmu.mall.product.query.ProductGroupQuery">
+		select
+			pg.id
+			,pg.gmt_start gmtStart
+			,pg.gmt_end gmtEnd
+			,pg.group_img groupImg
+			,NOW() currentDate
+			,p.id productId
+			,p.name productName
+			,p.old_price oldPrice
+			,p.digest
+			,p.thumbnail
+			,pgd.price
+			,pgd.backdays
+			,pgd.remark
+			,pgd.quantity 
+			,pgd.total_quantity totalQuantity
+			,pgd.gmt_finish gmtFinish
+		from  
+			(select pg.id
+				,pg.gmt_start 
+				,pg.gmt_end 
+				,pg.group_img 
+				from product_group pg
+				where pg.delete_flag = 0
+				<!-- status == 0 ：未开始 -->
+				<if test="status == 0">
+					and pg.gmt_start > DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+				</if>
+				<!-- status == 1 ：秒杀中 -->
+				<if test="status == 1">
+					and pg.gmt_end > DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') and pg.gmt_start &lt;= DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+				</if>
+				<!-- status == 2 ：已完成 -->
+				<if test="status == 2">
+					and pg.gmt_end &lt; DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+					and pg.gmt_end = (select gmt_end from product_group  where product_group.delete_flag=0 and product_group.gmt_end &lt;= DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') order by id DESC limit 1)
+				</if>
+				<if test="groupType != null">
+					and pg.group_type = #{groupType} 
+				</if>
+				<if test="startRow !=null and pageSize != null">
+					limit #{startRow},#{pageSize}
+				</if>
+				) pg
+		left join product_group_detail pgd on pgd.group_id = pg.id and pgd.delete_flag = 0
+		left join product p on pgd.product_id = p.id and p.delete_flag = 0 and p.`status` = 1
+		left join business b on b.id = p.business_id and b.delete_flag = 0
+		where 
+			b.gmt_end >= NOW() 
+			and b.gmt_start &lt;= NOW()
+	</select>
+	
+	<!-- 用户端 - 活动积分组列表 -->
+	<select id="getProductGroupPostShopVo" resultMap="productGroupShopVoMap" parameterType="com.youmu.mall.product.query.ProductGroupQuery">
+		select
+			pg.id
+			,pg.gmt_start gmtStart
+			,pg.gmt_end gmtEnd
+			,pg.group_img groupImg
+			,NOW() currentDate
+			,p.id productId
+			,p.name productName
+			,p.old_price oldPrice
+			,p.digest
+			,p.thumbnail
+			,pgd.price
+			,pgd.backdays
+			,pgd.remark
+			,pgd.quantity 
+			,pgd.total_quantity totalQuantity
+			,pgd.gmt_finish gmtFinish
+		from  
+			(select pg.id
+				,pg.gmt_start 
+				,pg.gmt_end 
+				,pg.group_img 
+				from product_group pg
+				where pg.delete_flag = 0
+				and not pg.gmt_end &lt; DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+			    or pg.gmt_end = (select gmt_end from product_group  where product_group.delete_flag=0 and product_group.gmt_end &lt;= DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') order by id DESC limit 1)
+				<if test="groupType != null">
+					and pg.group_type = #{groupType} 
+				</if>
+				<if test="startRow !=null and pageSize != null">
+					limit #{startRow},#{pageSize}
+				</if>
+				) pg
+		left join product_group_detail pgd on pgd.group_id = pg.id and pgd.delete_flag = 0
+		left join product p on pgd.product_id = p.id and p.delete_flag = 0 and p.`status` = 1
+		left join business b on b.id = p.business_id and b.delete_flag = 0
+		where 
+			b.gmt_end >= NOW() 
+			and b.gmt_start &lt;= NOW()
+	</select>
+	
+	<!-- 用户端 -->
+	<select id="getCountByProductGroupShopVo" resultType="long">
+		select 
+			count(pg.id)
+		from product_group pg
+		where pg.delete_flag = 0
+		<if test="groupType == 1">
+			and  pg.group_type = 1 
+			and 
+				 	(pg.gmt_end>=DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') and pg.gmt_start &lt; DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s'))
+		</if>
+		<if test="groupType == 2">
+			and  pg.group_type = 2
+		</if>
+		<if test="groupType == 4">
+			and  pg.group_type = 4
+		</if>
+	</select>
+	
+	<!-- 用户端 - 活动积分组列表总数 -->
+	<select id="getCountByProductGroupGetShopVo" resultType="long" parameterType="com.youmu.mall.product.query.ProductGroupQuery">
+		select 
+			count(pg.id)
+		from product_group pg
+		where pg.delete_flag = 0
+				<!-- status == 0 ：未开始 -->
+				<if test="status == 0">
+					and pg.gmt_start > DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+				</if>
+				<!-- status == 1 ：秒杀中 -->
+				<if test="status == 1">
+					and pg.gmt_end > DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') and pg.gmt_start &lt;= DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+				</if>
+				<!-- status == 2 ：已完成 -->
+				<if test="status == 2">
+					and pg.gmt_end &lt; DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+					and pg.gmt_end = (select gmt_end from product_group  where product_group.delete_flag=0 and product_group.gmt_end &lt;= DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') order by id DESC limit 1)
+				</if>
+				<if test="groupType != null">
+					and pg.group_type = #{groupType} 
+				</if>
+	</select>
+	
+	<!-- 用户端 - 活动积分组列表总数 -->
+	<select id="getCountByProductGroupPostShopVo" resultType="long" parameterType="com.youmu.mall.product.query.ProductGroupQuery">
+		select 
+			count(pg.id)
+		from product_group pg
+		where pg.delete_flag = 0
+					and not pg.gmt_end &lt; DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s')
+					or pg.gmt_end = (select gmt_end from product_group  where product_group.delete_flag=0 and product_group.gmt_end &lt;= DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') order by id DESC limit 1)
+				<if test="groupType != null">
+					and pg.group_type = #{groupType} 
+				</if>
+	</select>
+	
+	
+	<!-- 用户端- 秒杀&特价  根据活动组id查询商品组明细 -->
+	<select id="getProductGroupDetailShopVoById" resultMap="productGroupShopVoMap">
+		select
+			pg.id
+			,DATE_FORMAT(pg.gmt_start,"%Y-%m-%d %H:%i:%s") gmtStart
+			,DATE_FORMAT(pg.gmt_end,"%Y-%m-%d %H:%i:%s") gmtEnd
+			,pg.group_img groupImg
+			,p.id productId
+			,p.name productName
+			,p.old_price oldPrice
+			,p.digest
+			,p.thumbnail 
+			,pgd.price
+			,pgd.backdays
+			,pgd.remark
+			,pgd.gmt_finish gmtFinish
+			,pgd.quantity
+			,pgd.total_quantity totalQuantity
+			,now() currentDate
+		from product_group pg
+		left join product_group_detail pgd on pgd.group_id = pg.id and pgd.delete_flag = 0
+		left join product p on pgd.product_id = p.id and p.delete_flag = 0 and p.`status` = 1
+		left join business b on b.id = p.business_id and b.delete_flag = 0
+		where pg.delete_flag = 0 
+		and b.gmt_end >= NOW() 
+		and b.gmt_start &lt;= NOW()
+		and pg.id = #{groupId}
+	</select>
+	
+	<!-- 判断是否当前时段可用，大于0或者为空，则不可用，等于0才可用 -->
+	<select id="checkDateIsUsed" resultType="boolean">
+		select 
+		if(COUNT(id)=0,0,1)
+		from 
+		product_group 
+		where delete_flag = 0 and group_type = 1 AND
+		(
+			(gmt_start >= str_to_date(#{gmtStart},'%Y-%m-%d %H:%i:%s') AND gmt_start &lt;= str_to_date(#{gmtEnd},'%Y-%m-%d %H:%i:%s')) OR 
+			(gmt_start &lt;= str_to_date(#{gmtStart},'%Y-%m-%d %H:%i:%s') AND gmt_end > str_to_date(#{gmtEnd},'%Y-%m-%d %H:%i:%s')) OR
+			(gmt_end > str_to_date(#{gmtStart},'%Y-%m-%d %H:%i:%s') AND gmt_end &lt; str_to_date(#{gmtEnd},'%Y-%m-%d %H:%i:%s'))
+		)
+	</select>
+	
+	<!-- 查询当前商品组明细项的剩余商品数量 -->
+	<select id="getRestQuantityByDetailId" resultType="java.lang.Integer">
+		select
+			quantity
+		from product_group_detail
+		where id = #{groupDetailId} and delete_flag = 0 
+	</select>
+	
+	<!-- 更改抢完时间 -->
+	<update id="updateFinishDateById">
+		update product_group_detail
+		set gmt_finish = now()
+		where id = #{groupDetailId} and delete_flag = 0 
+	</update>
+	
+	<!-- 秒杀页面banner(查询当天参加活动的时间段) -->
+	<select id="getGroupBannerDate" resultType="com.youmu.mall.product.vo.GroupDateVo">
+		select
+			DATE_FORMAT(gmt_start,'%H') gmtStart
+			,DATE_FORMAT(gmt_end,'%H') gmtEnd
+		from product_group
+		where 
+			delete_flag = 0
+		and group_type = 1 
+		and DATE_FORMAT(gmt_start,'%Y-%m-%d') = DATE_FORMAT(CURDATE(),'%Y-%m-%d') 
+		and 
+		(
+			(DATE_FORMAT(gmt_end,'%Y-%m-%d') = DATE_FORMAT(CURDATE(),'%Y-%m-%d'))
+			OR
+			(DATE_FORMAT(gmt_end,'%Y-%m-%d') = DATE_FORMAT(DATE_ADD(CURDATE(),INTERVAL 1 DAY),'%Y-%m-%d'))
+		)
+		order by gmt_start ASC
+	</select>
+	
+	<!-- 根据商品id查询当前参与活动商品组的记录 -->
+	<select id="getDetailInfoByProductId" resultType="com.youmu.mall.product.domain.ProductGroupDetail">
+		select 
+			pgd.id itemId, pgd.group_id groupId, pgd.quantity, pgd.version 
+		from product_group_detail pgd
+		LEFT JOIN product_group pg on pgd.group_id = pg.id and pg.delete_flag = 0 
+		where pgd.delete_flag = 0 
+			and pgd.product_id = #{productId} 
+			and 
+				(
+					(
+						group_type = 1 and 
+						(
+							<!-- 正在参加秒杀的商品 -->
+					 		(pg.gmt_end>DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') and pg.gmt_start &lt;= DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s'))
+						) 
+					)
+					OR 
+						(group_type = 2)
+					OR
+					    (group_type = 4)
+				)
+	</select>
+	
+	<!-- 根据商品id查询积分商品的信息 -->
+	<select id="getDetailByProductId" resultType="com.youmu.mall.product.domain.ProductGroupDetail">
+			select
+			 pgd.backdays
+			,pgd.price
+			from product_group_detail pgd
+			LEFT JOIN product_group pg on pgd.group_id = pg.id and pg.delete_flag = 0 
+			where pgd.product_id = #{productId}
+			    and pgd.delete_flag = 0
+			    and pg.group_type = 4
+	</select>
+	
+	<update id="clearFinishDate">
+		update product_group_detail
+		set gmt_finish = null 
+		where product_id = #{productId} and group_id = #{groupId} and delete_flag = 0
+	</update>
+</mapper>

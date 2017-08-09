@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.banner.dao.BannerDao" >
+
+  <sql id="WhereSql">
+  	<where>
+  		delete_flag = 0
+  		<if test="bannerType != null">
+  			and type = #{bannerType}
+  		</if>
+  	</where>
+  </sql>
+  
+  <sql id="PageSql">
+    <if test="startRow != null and pageSize != null">
+      limit #{startRow}, #{pageSize}
+    </if>
+  </sql>
+  
+  <select id="getBannerSysList" resultType="com.youmu.mall.banner.vo.BannerSysVo" parameterType="com.youmu.mall.banner.query.BannerQuery">
+    select
+	    id
+	    ,type
+	   	,image
+	   	,linkurl
+    from banner b
+    <include refid="WhereSql" />
+    <if test="bannerType!=null">
+    	ORDER BY orders ASC
+    </if>
+    <if test="bannerType==null">
+    	ORDER BY id ASC
+    </if>
+    <include refid="PageSql" />
+  </select>
+  
+  <select id="getBannerShopVo" resultType="com.youmu.mall.banner.vo.BannerShopVo">
+  	select 
+  		linkurl
+  		,image
+  		,type
+  	from banner
+  	where delete_flag = 0 
+  	<if test="bannerType!=null">
+  		and type = #{bannerType}
+  	</if>
+  	ORDER BY orders ASC
+  </select>
+  
+  
+  <insert id="save" parameterType="com.youmu.mall.banner.domain.Banner" useGeneratedKeys="true" keyColumn="id" keyProperty="id">
+    insert into banner 
+    (
+      name,
+      type,
+      image,
+      linkurl,
+      orders,
+      delete_flag, 
+      gmt_create
+     )
+    values 
+    (
+      #{name}
+      ,#{type}
+      ,#{image}
+      ,#{linkurl}
+      ,#{orders}
+      ,0
+      ,now()
+     )
+  </insert>
+  
+  
+  <update id="update" parameterType="com.youmu.mall.banner.domain.Banner">
+  	update banner
+  	<set>
+  		<if test="name != null">
+  			name = #{name},
+  		</if>
+  		<if test="linkurl != null">
+  			linkurl = #{linkurl},
+  		</if>
+  		<if test="image != null and image != ''">
+  			image = #{image},
+  		</if>
+  		<if test="type != null">
+  			type = #{type},
+  		</if>
+  		<if test="orders != null">
+  			orders = #{orders},
+  		</if>
+  		gmt_modified = now()
+  	</set>
+  	where id=#{id} and delete_flag = 0
+  </update>
+  
+  <update id="delete">
+  	update banner
+  		set delete_flag = 1
+  	where id=#{id} and delete_flag = 0
+  </update>
+  
+  <select id="getByCount" resultType="long" parameterType="com.youmu.mall.banner.query.BannerQuery">
+  	select 
+  		count(id)
+  	from banner
+  	<include refid="WhereSql" />
+  </select>
+  
+  <select id="getById" resultType="com.youmu.mall.banner.vo.BannerSysVo">
+  	select
+  		id
+  		,name
+  		,linkurl
+  		,type
+  		,image
+  	from banner
+  	where id=#{id} and delete_flag = 0
+  </select>
+  
+</mapper>

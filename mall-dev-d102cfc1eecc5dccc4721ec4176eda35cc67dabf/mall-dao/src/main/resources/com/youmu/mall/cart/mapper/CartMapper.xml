@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.cart.dao.CartDao" >
+
+  <sql id="PageSql">
+    <if test="startRow != null and pageSize != null">
+      limit #{startRow}, #{pageSize}
+    </if>
+  </sql>
+
+  <select id="getCartVo" resultType="com.youmu.mall.cart.vo.CartVo" parameterType="com.youmu.mall.cart.query.CartQuery">
+    select
+    c.id
+    ,c.product_id productId
+    ,c.quantity
+    
+    ,p.name productName
+    ,p.business_id businessId
+    ,p.thumbnail productImg
+    ,p.digest
+
+	,p.old_price oldPrice		
+	,p.promotion_price promotionPrice
+    ,pgd.bargainPrice
+    ,pgd.groupType
+	,category.name categoryName
+	,category.id categoryId
+	 , specification.id specificationId
+	,specification.name specificationName
+    from cart c
+	LEFT JOIN category on c.category_id=category.id
+	LEFT JOIN specification ON c.specification_id=specification.id
+    inner join product p on c.product_id = p.id and p.delete_flag = 0 and p.status = 1
+		LEFT JOIN 
+		(
+			SELECT
+				pgd.product_id productId
+				,pgd.price bargainPrice
+				,pg.group_type groupType
+			FROM
+			(select * from product_group_detail pgd where pgd.delete_flag = 0) pgd
+			LEFT JOIN product_group pg on pg.id = pgd.group_id and pg.delete_flag = 0 
+			LEFT JOIN product p on p.id = pgd.product_id and p.delete_flag = 0
+				
+			where pgd.delete_flag = 0 
+			and
+				(
+					  pg.group_type = 1 and 
+			  	  (
+					 (pg.gmt_end>DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s') and pg.gmt_start &lt;= DATE_FORMAT(CURRENT_TIMESTAMP(),'%Y-%m-%d %H:%i:%s'))
+				  ) 
+				)
+			OR 
+				(pg.group_type = 2)
+			OR
+				(pg.group_type = 4)
+		) pgd on pgd.productId = p.id
+		
+		 where c.delete_flag = 0
+    	<if test="userId != null">
+    		and user_id = #{userId}
+    	</if>
+   		order by c.id DESC
+    <include refid="PageSql" />
+  </select>
+  
+  <select id="getById" resultType="com.youmu.mall.cart.domain.Cart">
+  	select 
+  		id
+  		,user_id userId
+  		,product_id productId
+  		,quantity 
+  		,price
+  	from cart
+  	where 
+  		id = #{cartId} and delete_flag = 0
+  </select>
+  
+  <select id="checkIfRepeat" resultType="long" parameterType="com.youmu.mall.cart.domain.Cart">
+  		select 
+  			id
+  		from cart
+  		where delete_flag = 0 
+  			and user_id=#{userId} 
+  			and product_id=#{productId} 
+	</select>
+  
+  <insert id="saveCart" parameterType="com.youmu.mall.cart.domain.Cart">
+  	insert into cart
+  	(
+  		user_id
+  		,product_id
+  		,quantity
+  		,price
+  		,gmt_create
+  		,delete_flag
+  		<if test="categoryId!=null">
+		 ,category_id
+		</if>
+	   <if test="specificationId!=null">
+		   ,specification_id
+	   </if>
+  	)
+  	values
+  	(
+		#{userId}
+		,#{productId}
+		,#{quantity}
+		,#{price}
+		,now()
+		,0
+	    <if test="categoryId!=null">
+			,#{categoryId}
+		</if>
+	  <if test="specificationId!=null">
+		  ,#{specificationId}
+	  </if>
+  	)
+  </insert>
+  
+  <update id="update" parameterType="com.youmu.mall.cart.domain.Cart" >
+    update cart
+    <set >
+    	gmt_modified = now(),
+      <if test="productId != null" >
+        product_id = #{productId},
+      </if>
+      <if test="quantity != null" >
+        quantity = #{quantity}
+      </if>
+    </set>
+    where id = #{id} and user_id = #{userId}
+  </update>
+  
+  
+  <update id="deleteCart">
+  	update cart
+  		set delete_flag = 1
+  	where id = #{cartId} and user_id = #{userId} and delete_flag = 0
+  </update>
+  
+  <select id="getCountByUserId" resultType="java.lang.Integer">
+  	SELECT
+		COUNT(c.id)
+	from  cart c
+	INNER JOIN product p ON p.id = c.product_id AND p.delete_flag = 0 and p.status = 1
+	LEFT JOIN business b on b.id = p.business_id and b.delete_flag = 0
+		and (now() &lt;= b.gmt_end or NOW() >= b.gmt_start)
+	WHERE c.user_id = #{userId} and c.delete_flag = 0
+  </select>
+  
+</mapper>

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:context="http://www.springframework.org/schema/context" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="
+	http://www.springframework.org/schema/beans 
+	http://www.springframework.org/schema/beans/spring-beans.xsd
+	http://www.springframework.org/schema/context 
+	http://www.springframework.org/schema/context/spring-context.xsd
+	http://www.springframework.org/schema/aop
+	http://www.springframework.org/schema/aop/spring-aop.xsd
+	http://www.springframework.org/schema/tx
+	http://www.springframework.org/schema/tx/spring-tx.xsd
+	http://www.springframework.org/schema/mvc
+	http://www.springframework.org/schema/mvc/spring-mvc.xsd
+	">
+	
+	<!-- controller组件扫描 -->
+	<context:component-scan base-package="com.youmu.mall.web.shop.*.controller">
+			<context:include-filter type="annotation"
+      expression="org.springframework.web.bind.annotation.RestController" />
+			<context:include-filter type="annotation"
+      expression="org.springframework.web.bind.annotation.ControllerAdvice" />
+	</context:component-scan>
+	
+  <!-- 静态资源处理 -->
+  <mvc:default-servlet-handler/>
+	
+  <!-- 注解驱动 -->
+  <mvc:annotation-driven />
+  
+	<context:annotation-config  />
+	
+	<bean class="com.youmu.mall.web.shop.config.SwaggerConfig" />
+	
+	 <!-- 解决json 返回中文乱码 -->
+  <bean id="mappingJacksonHttpMessageConverter"  class="org.springframework.http.converter.json.MappingJackson2HttpMessageConverter"> 
+      <property name="supportedMediaTypes">
+          <list>
+                <value>text/html;charset=UTF-8</value>
+          </list>
+      </property>
+  </bean>
+  
+  <mvc:interceptors>
+    <mvc:interceptor>
+      <mvc:mapping path="/**"/>
+      <!-- 登录注册 -->
+      <mvc:exclude-mapping path="/user/login"/>
+      <mvc:exclude-mapping path="/user/isLogged"/>
+      <mvc:exclude-mapping path="/user/regist"/>
+      <mvc:exclude-mapping path="/user/registInWx"/>
+      <mvc:exclude-mapping path="/user/sendRegistAuthCode"/>
+      <mvc:exclude-mapping path="/user/sendRestPasswordAuthCode"/>
+      <mvc:exclude-mapping path="/user/checkResetPasswordAuthCode"/>
+      <mvc:exclude-mapping path="/user/forgetResetPassword"/>
+
+      <!--新闻相关-->
+      <mvc:exclude-mapping path="/News/getNews"/>
+      
+      <!-- 商品相关 -->
+      <mvc:exclude-mapping path="/product/getProductVoByType"/>
+      <mvc:exclude-mapping path="/product/getProductDetailShopVo"/>
+      <mvc:exclude-mapping path="/product/getAllBusinessType"/>
+      <mvc:exclude-mapping path="/product/getCategoryById"/>
+      
+      <!-- banner相关 -->
+      <mvc:exclude-mapping path="/banner/getBannerSysList"/>
+      
+      <!-- 支付相关 -->
+      <mvc:exclude-mapping path="/productorder/notifyWeixin"/>
+      <mvc:exclude-mapping path="/productorder/notifyAlipay"/>
+      
+      <!-- 活动商品相关 -->
+      <mvc:exclude-mapping path="/productgroup/getProductGroupShopVo"/>
+      <mvc:exclude-mapping path="/productgroup/getProductGroupDetailShopVoById"/>
+      <mvc:exclude-mapping path="/productgroup/getGroupBannerDate"/>
+      
+      <!-- 商品评价 -->
+      <mvc:exclude-mapping path="/productReviews/findPage"/>
+      
+      <!-- 测试 -->
+       <mvc:exclude-mapping path="/register/**"/>
+       <mvc:exclude-mapping path="/productgroup/**"/>
+
+      
+      <!-- swagger -->
+      <mvc:exclude-mapping path="/swagger**"/>
+      <mvc:exclude-mapping path="/v2/**"/>
+	  <mvc:exclude-mapping path="/webjars/**"/>
+	  <mvc:exclude-mapping path="/pay/payResult"/>
+	  
+	  <mvc:exclude-mapping path="/wx/**"/>
+	  <mvc:exclude-mapping path="/*.html"/>
+	  <mvc:exclude-mapping path="/*.jsp"/>
+	  
+	  <mvc:exclude-mapping path="/pay/**"/>
+      <bean class="com.youmu.mall.web.shop.filter.AuthorizationFilter"/>
+    </mvc:interceptor>
+  </mvc:interceptors>
+</beans>

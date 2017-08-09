@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:context="http://www.springframework.org/schema/context" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+	xsi:schemaLocation="
+	http://www.springframework.org/schema/beans 
+	http://www.springframework.org/schema/beans/spring-beans.xsd
+	http://www.springframework.org/schema/context 
+	http://www.springframework.org/schema/context/spring-context.xsd
+	http://www.springframework.org/schema/aop
+	http://www.springframework.org/schema/aop/spring-aop.xsd
+	http://www.springframework.org/schema/tx
+	http://www.springframework.org/schema/tx/spring-tx.xsd
+	"
+	default-autowire="byName"
+	>
+	
+	<!-- 开启全局的自动注入 -->
+	<context:annotation-config />
+	 
+  <!-- 动态代理  proxy-target-class=true 不论是是否有上层接口 都使用cglib代理的方式  false 没有接口使用cglib 代理 有接口使用jdk代理  -->
+  <aop:aspectj-autoproxy proxy-target-class="true" expose-proxy="true" />
+  
+  <!-- 扫码service -->
+  <context:component-scan base-package="com.youmu.mall.*.service" />
+	
+	<!-- 导入所有的配置文件 -->
+	<import resource="classpath*:applicationContext-dao.xml"/>
+	
+</beans>

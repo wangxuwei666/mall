@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.user.dao.SysUserDao" >
+  
+  
+  <resultMap type="com.youmu.mall.user.domain.SysUser" id="LoginUserMap" autoMapping="true">
+  	<id column="id" property="id"/>
+  	<association property="role" javaType="com.youmu.mall.sys.domain.SysRole">
+  		<id property="id" column="r_id"/>
+  		<result property="name" column="r_name"/>
+  	</association>
+  	<collection property="menus" ofType="com.youmu.mall.sys.domain.SysMenu">
+  		<id property="id" column="m_id"/>
+  		<result property="name" column="m_name"/>
+  		<result property="url" column="m_url"/>
+  		<result property="index" column="m_index"/>
+  		<association property="parent" javaType="com.youmu.mall.sys.domain.SysMenu">
+  			<id property="id" column="m_parent_id" />
+  			<result property="index" column="m_parent_index"/>
+  		</association>
+  	</collection>
+  </resultMap>
+  
+  <sql id="PageSql">
+  	<if test="startRow != null and pageSize != null">
+  		limit #{startRow}, #{pageSize}
+  	</if>
+  </sql>
+  
+  <!-- 查询该手机号码的用户数量 -->
+  <select id="selectSysUserLoginInfo" resultMap="LoginUserMap"  parameterType="string">
+    select u.id, u.account, u.username, u.password, u.status,
+    r.id r_id,
+    r.name r_name,
+    m.id m_id,
+    m.name m_name,
+    m.url m_url,
+    m.index m_index,
+	p.id m_parent_id,
+	p.index m_parent_index
+    from 
+    sys_user u
+    left join sys_role r on r.id = u.role_id and r.delete_flag = 0
+    left join sys_role_menu rm on rm.role_id = r.id
+    left join sys_menu m on m.id = rm.menu_id and m.delete_flag = 0
+    left join sys_menu p on m.parent_id = p.id and p.delete_flag = 0
+    where u.account = #{account} and u.delete_flag = 0 and u.status = 0
+  </select>
+  
+  <!-- 添加一个系统用户 -->
+  <insert id="insertSysUser" parameterType="com.youmu.mall.user.domain.SysUser">
+  	insert into sys_user
+  	(
+  		account,
+		username,
+		password,
+		role_id,
+		gmt_create
+  	)
+  	values
+  	(
+  		#{account},
+  		#{username},
+  		#{password},
+  		#{role.id},
+  		now()
+  	)
+  </insert>
+  
+  <!-- 查询系统用户的总数 -->
+  <select id="selectSysUserCount" parameterType="com.youmu.mall.base.query.PageQuery" resultType="long">
+  	select 
+  		count(u.id)
+  	from 
+  		sys_user u
+  	where u.delete_flag = 0
+  </select>
+  
+  <resultMap type="com.youmu.mall.user.vo.SysUserListVo" id="SysUserResultMap" autoMapping="true">
+  	<id column="id" property="id"/>
+  	<association property="role" javaType="com.youmu.mall.sys.domain.SysRole">
+		<id column="r_id" property="id"/>
+		<result column="r_name" property="name"/>
+  	</association>
+  </resultMap>
+  
+    <!-- 查询系统用户的列表 -->
+  <select id="selectSysUserList" parameterType="com.youmu.mall.base.query.PageQuery" resultMap="SysUserResultMap">
+  	select 
+	  	u.id,
+		u.account,
+		u.username,
+		r.id r_id,
+		r.name r_name,
+		u.gmt_create gmtCreate
+  	from
+  		sys_user u
+  	left join sys_role r on u.role_id = r.id
+  	where u.delete_flag = 0
+  	order by u.gmt_create desc
+  	<include refid="PageSql" />
+  </select>
+  
+  <select id="selectUpdateSysUser" parameterType="long" resultMap="SysUserResultMap">
+  	select 
+	  	u.id,
+		u.account,
+		u.username,
+		r.id r_id,
+		r.name r_name,
+		u.gmt_create gmtCreate
+  	from
+  		sys_user u
+  	left join sys_role r on u.role_id = r.id
+  	where u.delete_flag = 0 and u.id = #{id}
+  </select>
+  
+  
+  <!-- 查询系统用户的重复数量 -->
+  <select id="selectSysUserRepeatCount" parameterType="com.youmu.mall.user.domain.SysUser" resultType="long">
+  	select count(id) from sys_user where account = #{account} and delete_flag = 0
+  	<if test="id != null">
+  		and id != #{id}
+  	</if>
+  </select>
+  
+  <!-- 修改系统用户的状态 -->
+  <update id="updateSysUserStatus">
+  	update sys_user set status = #{status} 
+  	where delete_flag = 0 and id = #{id}
+  </update>
+  
+  <!-- 修改系统用户信息 -->
+  <update id="updateSysUser" parameterType="com.youmu.mall.user.domain.SysUser">
+  	update sys_user 
+  	<set>
+  		<if test="username != null and username != ''">
+  			username = #{username},
+  		</if>
+  		<if test="account != null and account != ''">
+  			account = #{account},
+  		</if>
+  		<if test="role != null and role.id != null">
+  			role_id = #{role.id},
+  		</if>
+  	</set>
+  	where  id = #{id}
+  </update>
+  
+  <!-- 修改系统用户密码 -->
+  <update id="updateSysUserPassword">
+  	update sys_user 
+  	set password = #{password}
+  	where  id = #{userId}
+  </update>
+  
+  <!-- 通过用户id删除一个系统用户 -->
+  <update id="deleteSysUserById" parameterType="long">
+  	update sys_user 
+  	set delete_flag = 1
+  	where  id = #{id}
+  </update>
+  
+  <!-- 修改密码 -->
+  <update id="changePassowrd">
+  	update sys_user
+  	set password = #{newPassword}
+  	where password = #{oldPassword} and delete_flag = 0 and id = #{userId}
+  </update>
+  
+</mapper>

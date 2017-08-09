@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.points.dao.PointsDao">
+
+    <!-- 根据用户id创建数据 -->
+	<insert id="insertPointsById">
+		insert into points(
+		user_id
+		) 
+		values(
+		#{userid}
+		)
+	</insert>
+	
+    <!-- 根据用户id查询积分表id -->
+	<select id="getPointsIdById" resultType ="long">
+		select id
+		from points
+		where user_id = #{userid}
+	</select>
+			
+    <!-- 根据用户id查询积分 -->
+	<select id="getPointsById" resultType ="long">
+		select points
+		from points
+		where user_id = #{userid}
+	</select>
+	
+	<!-- 根据用户id增加积分 -->
+	<update id="addPointsById">
+		 update points 
+		 set points = points + #{figure} 
+		 where user_id = #{userid}
+	</update>
+	
+	<!-- 根据用户id扣用积分 -->
+	<update id="subPointsById">
+		update points
+		set points = points - #{figure}
+		where user_id = #{userid}
+	</update>
+
+</mapper>

@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.bus.dao.BussnessBusstypeDao" >
+
+  <resultMap id="BaseResultMap" type="com.youmu.mall.bus.domain.BussnessBusstype" >
+    <id column="id" property="id" jdbcType="INTEGER" />
+    <result column="business_type_id" property="businessTypeId" jdbcType="INTEGER" />
+    <result column="business_id" property="businessId" jdbcType="INTEGER" />
+  </resultMap>
+  
+  <sql id="Base_Column_List" >
+    id, business_type_id, business_id
+  </sql>
+  
+  <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Integer" >
+    select 
+    <include refid="Base_Column_List" />
+    from bussness_busstype
+    where id = #{id,jdbcType=INTEGER}
+  </select>
+  
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer" >
+    delete from bussness_busstype
+    where id = #{id,jdbcType=INTEGER}
+  </delete>
+  
+  <insert id="insert" parameterType="com.youmu.mall.bus.domain.BussnessBusstype" >
+    insert into bussness_busstype (id, business_type_id, business_id
+      )
+    values (#{id,jdbcType=INTEGER}, #{businessTypeId,jdbcType=INTEGER}, #{businessId,jdbcType=INTEGER}
+      )
+  </insert>
+  
+  <insert id="insertSelective" parameterType="com.youmu.mall.bus.domain.BussnessBusstype" >
+    insert into bussness_busstype
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="id != null" >
+        id,
+      </if>
+      <if test="businessTypeId != null" >
+        business_type_id,
+      </if>
+      <if test="businessId != null" >
+        business_id,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="id != null" >
+        #{id,jdbcType=INTEGER},
+      </if>
+      <if test="businessTypeId != null" >
+        #{businessTypeId,jdbcType=INTEGER},
+      </if>
+      <if test="businessId != null" >
+        #{businessId,jdbcType=INTEGER},
+      </if>
+    </trim>
+  </insert>
+  
+  <update id="updateByPrimaryKeySelective" parameterType="com.youmu.mall.bus.domain.BussnessBusstype" >
+    update bussness_busstype
+    <set >
+      <if test="businessTypeId != null" >
+        business_type_id = #{businessTypeId,jdbcType=INTEGER},
+      </if>
+      <if test="businessId != null" >
+        business_id = #{businessId,jdbcType=INTEGER},
+      </if>
+    </set>
+    where id = #{id,jdbcType=INTEGER}
+  </update>
+  
+  <update id="updateByPrimaryKey" parameterType="com.youmu.mall.bus.domain.BussnessBusstype" >
+    update bussness_busstype
+    set business_type_id = #{businessTypeId,jdbcType=INTEGER},
+      business_id = #{businessId,jdbcType=INTEGER}
+    where id = #{id,jdbcType=INTEGER}
+  </update>
+  
+  <insert id="insertBusinessBusstyps">
+     insert into bussness_busstype ( business_type_id, business_id)
+      VALUES
+      <foreach collection="businessTypeSet" item="businessTypeId" separator=",">
+        (#{businessTypeId},#{bussnessId})
+      </foreach>
+  </insert>
+  
+  <select id="getBussnessTypeByIdAndBussnessTpyeId" resultType="int">
+      SELECT COUNT(1) FROM bussness_busstype
+      WHERE business_id=#{bussnessId} and business_type_id =#{bussnessTpyeIdNew}
+  </select>
+  
+  <update id="updateBussnessBussType">
+      UPDATE bussness_busstype SET business_type_id=#{bussnessTpyeIdNew}
+      where business_id=#{bussnessId} and business_type_id=#{bussnessTpyeIdOld}
+  </update>
+  
+  <delete id="deleteBusinessTypeByBussnessIdAndBussnessTpyeId">
+    DELETE FROM bussness_busstype
+    WHERE  business_id=#{bussnessId} and business_type_id=#{bussnessTpyeId}
+  </delete>
+  
+  <select id="BussnessBussVOList" resultType="com.youmu.mall.bus.vo.BussnessBussVO">
+      SELECT bussness_busstype.id,bussness_busstype.business_id businessId,
+    bussness_busstype.business_type_id  businessTypeId,business_type.name businessTypeName
+
+  FROM bussness_busstype
+  LEFT JOIN business_type ON bussness_busstype.business_type_id=business_type.id
+  WHERE bussness_busstype.business_id=#{bussnessId} AND business_type.delete_flag=0
+  </select>
+  
+</mapper>

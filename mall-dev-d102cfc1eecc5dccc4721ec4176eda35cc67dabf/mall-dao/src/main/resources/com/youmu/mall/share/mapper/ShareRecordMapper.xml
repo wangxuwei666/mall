@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.share.dao.ShareRecordDao" >
+
+	<insert id="insertShareRecord" parameterType="com.youmu.mall.share.domain.ShareRecord">
+	
+		insert into share_records
+		(
+		     product_id
+		    ,user_id
+		 	,new_openid
+		 	,gmt_create
+		 	)
+		 	values
+		 	(
+		 	 #{productId}
+		 	,#{userId}
+		 	,#{newOpenId}
+		 	,now()
+		 	)	
+	</insert>
+		
+		
+	<select id="getShareRecordByNewOpenId" resultType="com.youmu.mall.share.domain.ShareRecord">
+	
+		select
+			id  
+		 	,product_id productId
+		 	,user_id userId
+		 	,new_openid newOpenId
+		 from share_records
+		 where new_openid = #{newOpenId}
+	</select>
+	
+	
+	<select id="getShareRecordByUserId" resultType="com.youmu.mall.share.domain.ShareRecord">
+		select
+			id  
+		 	,product_id productId
+		 	,user_id userId
+		 	,new_openid newOpenId
+		 from share_records
+		 where user_id = #{userId} and  product_id=#{productId} and new_openid newOpenId=#{newOpenId}
+	</select>
+</mapper>

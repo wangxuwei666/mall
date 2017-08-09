@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.user.dao.UserDao">
+
+	<!-- 保存一个用户 -->
+	<insert id="saveUser" parameterType="com.youmu.mall.user.domain.User" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+		insert into user (mobile, password, gmt_create)
+		values(#{mobile}, #{password}, now())
+	</insert>
+
+	<!-- 修改用户密码 -->
+	<update id="updateUserPassword">
+		update user set password = #{newPassword}
+		where id = #{id} and delete_flag = 0 and status = 0 and password = #{oldPassword}
+	</update>
+	
+	<!-- 修改用户密码 -->
+	<update id="updatePassword">
+		update user set password = #{password}
+		where mobile = #{mobile} and delete_flag = 0 and status = 0
+	</update>
+
+	<!-- 修改用户手机号码 -->
+	<update id="updateMobile">
+		update user set mobile = #{mobile}
+		where id = #{id} and delete_flag = 0 and status = 0
+	</update>
+
+	<!-- 查询该手机号码的用户数量 -->
+	<select id="selectUserCountByMobile" resultType="_int"
+		parameterType="string">
+		select count(id) from user where mobile = #{mobile} and delete_flag = 0 and
+		status = 0
+	</select>
+
+	<!-- 用户登录信息 -->
+	<select id="selectLoginUserInfo" resultType="com.youmu.mall.user.domain.User"
+		parameterType="string">
+		select id, username, mobile, password, wx_openid wxOpenid from user where mobile = #{mobile} and
+		delete_flag = 0 and status = 0
+	</select>
+	
+	<!-- 用户登录信息 -->
+	<select id="selectLoginUserInfoByWxOpenId" resultType="com.youmu.mall.user.domain.User"
+		parameterType="string">
+		select id, username, mobile, password from user where wx_openid = #{openid} and
+		delete_flag = 0 and status = 0
+	</select>
+
+	<sql id="pageWhereSql">
+		<where>
+			delete_flag = 0
+			<if test="keywords != null and keywords != ''">
+				and
+				(
+				mobile like concat('%', #{keywords} ,'%')
+				)
+			</if>
+			<if test="mobile != null and mobile != ''">
+				and
+				(
+				mobile like concat('%', #{mobile} ,'%')
+				)
+			</if>
+			<if test="gmtCreateStart != null">
+				and date(gmt_create) &gt;= date(#{gmtCreateStart})
+			</if>
+			<if test="gmtCreateEnd != null">
+				and date(gmt_create) &lt;= date(#{gmtCreateEnd})
+			</if>
+		</where>
+	</sql>
+
+	<sql id="pageSql">
+		<if test="startRow !=null and pageSize != null">
+			limit #{startRow}, #{pageSize}
+		</if>
+	</sql>
+
+	<!-- 查询用户根据查询对象查询的数量 -->
+	<select id="selectUserCount" resultType="long"
+		parameterType="com.youmu.mall.user.query.UserQuery">
+		select count(id) from user
+		<include refid="pageWhereSql" />
+	</select>
+
+	<!-- 查询用户根据查询对象用户信息 -->
+	<select id="selectUserList" resultType="com.youmu.mall.user.vo.UserListVo"
+		parameterType="com.youmu.mall.user.query.UserQuery">
+		select id, mobile, gmt_create gmtCreate from user
+		<include refid="pageWhereSql" />
+		<include refid="pageSql" />
+	</select>
+	
+	<!-- 绑定用户微信的信息 -->
+	<update id="updateUserWxAccountInfo" parameterType="com.youmu.mall.user.domain.User">
+		update user
+		<set>
+       <!-- 			
+            <if test="username != null">
+				username = #{username},
+			</if>                         -->
+			<if test="headIcon != null">
+				head_icon = #{headIcon},
+			</if>
+			<if test="wxOpenid != null">
+				wx_openid = #{wxOpenid},
+			</if>
+		</set> 
+		where id = #{id} and delete_flag=0
+	</update>
+
+	<select id="getById" resultType="com.youmu.mall.user.domain.User">
+		select
+		id
+		,username
+		,mobile
+		,status
+		,head_icon headIcon
+		from user
+		where id=#{userId}
+	</select>
+
+	<select id="getUserInfo" resultType="com.youmu.mall.user.vo.UserInfoVo">
+		select
+		u.mobile
+		,u.head_icon headIcon
+		,cc.couponCount
+		,rc.receiverCount
+		,uc.unPaidCount
+		,urc.unReceiveCount
+
+		FROM `user` u
+
+		LEFT JOIN
+		(SELECT
+		u.id userId,
+		COUNT(c.id) couponCount
+		FROM `user` u
+		LEFT JOIN user_coupon uc on uc.user_id = u.id and uc.used = 0 and
+		uc.delete_flag = 0
+		LEFT JOIN coupon c on c.id = uc.coupon_id and c.delete_flag = 0 
+		where u.delete_flag = 0 and c.gmt_end >= CURRENT_DATE()
+		GROUP BY u.id) cc on cc.userId = u.id
+
+		LEFT JOIN
+		(SELECT
+		u.id userId,
+		COUNT(r.id) receiverCount
+		FROM `user` u
+		LEFT JOIN receiver r on r.user_id = u.id and r.delete_flag = 0
+		where u.delete_flag = 0
+		GROUP BY u.id) rc on rc.userId = u.id
+
+		LEFT JOIN
+		(SELECT
+		u.id userId,
+		COUNT(o.id) unPaidCount
+		FROM `user` u
+		LEFT JOIN product_order o on o.user_id = u.id and o.delete_flag = 0 and
+		o.`status` = 0
+		WHERE u.delete_flag = 0
+		GROUP BY u.id) uc on uc.userId =u.id
+
+		LEFT JOIN
+		(SELECT
+		u.id userId,
+		COUNT(o.id) unReceiveCount
+		FROM `user` u
+		LEFT JOIN product_order o on o.user_id = u.id and o.delete_flag = 0 and
+		(o.`status` = 1 or o.`status` = 2)
+		WHERE u.delete_flag = 0
+		GROUP BY u.id) urc on urc.userId = u.id
+
+		where u.delete_flag = 0 and u.id = #{userId}
+	</select>
+	
+	<update id="confirmRecevied">
+		update product_order
+		set
+			status = 3
+		where 
+			user_id = #{userId} and id = #{orderId} and delete_flag = 0 and status = 2
+	</update>
+	
+	<!-- 修改用户的头像 -->
+	<update id="updateUserHeadIcom">
+		update user set head_icon = #{headIcon} where id = #{id}
+	</update>
+	
+	<select id="getUserOpenId" resultType="java.lang.String">
+		select
+			wx_openid
+		from user
+		where delete_flag = 0 and id = #{userId}
+	</select>
+</mapper>

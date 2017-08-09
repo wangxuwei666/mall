@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.permission.dao.SysMenuDao">
+	
+	<!-- 添加一个菜单 -->
+	<insert id="insertSysMenu" parameterType="com.youmu.mall.sys.domain.SysMenu">
+		insert into sys_menu (name, url, parent_id, gmt_create)
+		values(#{name}, #{url}, #{parent.id}, now())
+	</insert>
+	
+	<!-- 修改一个菜单 -->
+	<update id="updateById" parameterType="com.youmu.mall.sys.domain.SysMenu">
+		update sys_menu
+		<set>
+			<if test="name != null and name != ''">
+				name = #{name},
+			</if>
+			<if test="url != null and url != ''">
+				url = #{url},
+			</if>
+			<if test="parent != null and parent.id != ''">
+				parent_id = #{parent.id},
+			</if>
+		</set>
+		where id = #{id}
+	</update>
+	
+	<!-- 删除通过id -->
+	<delete id="deleteById" parameterType="long">
+		update sys_menu
+		set delete_flag = 1
+		where id = #{id}
+	</delete>
+	
+	<resultMap type="com.youmu.mall.sys.domain.SysMenu" id="SysMenuMap" autoMapping="true">
+		<id column="id"  property="id"/>
+		<association property="parent" javaType="com.youmu.mall.sys.domain.SysMenu">
+			<id  column="p_id" property="id"/>
+			<result column="p_name" property="name" />
+			<result column="p_url" property="url" />
+		</association>
+	</resultMap>
+	
+	<!-- 查询一个系统菜单 -->
+	<select id="selectById" parameterType="long" resultMap="SysMenuMap">
+		select
+			m.id,
+			m.name,
+			m.url,
+			p.id p_id,
+			p.name p_name,
+			p.url p_url
+		from sys_menu m
+		left join sys_menu p on p.id = m.parent_id
+		where m.id = #{id}
+	</select>
+	
+	<!-- 查询所有的菜单   添加角色时使用 -->
+	<select id="selectAllSysMenu" resultType="com.youmu.mall.sys.vo.SysMenuListVo">
+		select id, name, parent_id parentId from sys_menu where delete_flag = 0 order by id asc
+	</select>
+	
+	<!-- 查询所有角色的所有 -->
+	<select id="selectMenuListByRoleId" parameterType="long" resultType="com.youmu.mall.sys.vo.SysMenuListVo">
+		select m.id, m.name, m.parent_id parentId
+		from
+		sys_role_menu rm 
+		left join sys_menu m on m.id = rm.menu_id and delete_flag = 0
+		where delete_flag = 0 and rm.role_id = #{roleId}
+	</select>
+	
+	<!-- 查询重复的数量 在添加修改的时候重复判断 -->
+	<select id="selectRepeatCount" resultType="long" parameterType="com.youmu.mall.sys.domain.SysMenu">
+		select count(id)
+		from sys_menu
+		where delete_flag = 0 and name = #{name}
+		<if test="id != null">
+			and id != #{id}
+		</if>
+	</select>
+	
+</mapper>

@@ -1,0 +1,9 @@
+/target/
+/.pmd
+*.iml
+*.idea/
+.metadata
+.classpath
+.project
+.settings
+.gitkeep

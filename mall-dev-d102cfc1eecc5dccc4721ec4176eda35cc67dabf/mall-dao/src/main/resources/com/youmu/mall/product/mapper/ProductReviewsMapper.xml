@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.product.dao.ProductReviewsDao">
+
+  <sql id="PageSql">
+    <if test="startRow != null and pageSize != null">
+      limit #{startRow}, #{pageSize}
+    </if>
+  </sql>
+
+	<!-- add product reviews -->
+	<insert id="save" parameterType="com.youmu.mall.product.domain.ProductReviews" >
+		insert into product_reviews(
+			product_id,
+			user_id,
+			user_mobile,
+			critic,
+			text,
+			is_passed,
+			gmt_create
+		)
+		values(
+			#{product.id},
+			#{user.id},
+			#{user.mobile},
+			#{user.username},
+			#{text},
+			#{passed},
+			now()
+		)
+	</insert>
+	
+	<!-- add product reviews -->
+	<update id="remove" parameterType="long" >
+		update product_reviews
+		set delete_flag = 1 where id = #{id} and delete_flag = 0
+	</update>
+	
+	<!-- 查询一页数据 -->
+	<select id="findPage" parameterType="com.youmu.mall.product.query.ProductReviewsQuery" resultType="com.youmu.mall.product.domain.ProductReviews">
+		select
+			id,
+			concat(left(user_mobile, 4), '****', right(user_mobile, 4)) as userMobile,
+			critic,
+			text,
+			gmt_create as gmtCreate
+		from
+		    product_reviews
+		where product_id = #{productId} and gmt_create &lt;= #{lastGmtCreate} and id &lt; #{lastId} and delete_flag = 0 and is_passed = 1
+		order by gmt_create desc, id desc
+		limit #{pageSize}
+	</select>
+	
+	<sql id="sysQuerySql">
+		<where>
+			<if test="productId != null">
+				and pr.product_id = #{productId}
+			</if>
+			<if test="passed != null" >
+				and pr.is_passed = #{passed}
+			</if>
+			<if test="keywords != null and keywords != ''" >
+				and ( 
+					pr.text like concat('%', #{keywords}, '%')
+					or
+					pr.user_mobile like concat('%', #{keywords}, '%')
+					or
+					p.name like concat('%', #{keywords}, '%')
+					or
+					pr.critic like concat('%', #{keywords}, '%')
+				)
+			</if>
+			<if test="gmtCreateStart != null" >
+				and date(pr.gmt_create) &gt;= #{gmtCreateStart}
+			</if>
+			<if test="gmtCreateEnd != null" >
+				and date(pr.gmt_create) &lt;= #{gmtCreateEnd}
+			</if>
+			and pr.delete_flag = 0
+		</where>
+	</sql>
+
+	<resultMap id="ProductReviewsSysMap" type="com.youmu.mall.product.domain.ProductReviews" autoMapping="true">
+		<id column="id" property="id" />
+		<association  property="product" javaType="com.youmu.mall.product.domain.Product">  
+			<result property="id" column="p_id"/>  
+			<result property="name" column="p_name"/>  
+		</association> 
+	</resultMap>
+	
+	<!-- 查询一页数据 -->
+	<select id="findSysPage" parameterType="com.youmu.mall.product.query.ProductReviewsQuery" resultMap="ProductReviewsSysMap">
+		select
+			pr.id,
+			pr.user_mobile as userMobile,
+			pr.critic,
+			pr.text,
+			pr.is_passed passed,
+			pr.gmt_create as gmtCreate,
+			p.id p_id,
+			p.name p_name
+		from
+		    product_reviews pr
+		left join product p on  p.id = pr.product_id and p.delete_flag = 0
+		<include refid="sysQuerySql"  />
+		order by pr.gmt_create desc
+		<include  refid="PageSql" />
+	</select>
+	
+	<!-- 查询一页数据 -->
+	<select id="countSys" parameterType="com.youmu.mall.product.query.ProductReviewsQuery" resultType="long">
+		select
+			count(pr.id)
+		from
+		    product_reviews pr
+		left join product p on  p.id = pr.product_id and p.delete_flag = 0
+		<include  refid="sysQuerySql" />
+	</select>
+	
+	
+</mapper>

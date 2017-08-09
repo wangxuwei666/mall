@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.news.dao.NewsDao">
+
+	<resultMap type="com.youmu.mall.news.domain.News" id="NewsDetailMap">
+		<id column="id" property="id"/>
+	    <result column="title" property="title"/>
+	    <result column="link" property="link"/>
+	</resultMap>
+	 
+	<!-- 获取最近n条新闻 -->
+  	<select id="getNews" resultMap="NewsDetailMap">
+		select
+		id
+		,title
+		,link
+		from news
+		where id>((select max(id) from news)-4)
+	</select>
+
+	<!-- 根据id获取新闻 -->
+	<select id="getNewsById" resultType="com.youmu.mall.news.domain.News">
+		select
+		id
+		,title
+		,link
+		from news
+		where id=#{id}
+	</select>
+</mapper>

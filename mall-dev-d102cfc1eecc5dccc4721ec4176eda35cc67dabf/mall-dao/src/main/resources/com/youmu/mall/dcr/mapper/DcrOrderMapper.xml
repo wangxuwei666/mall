@@ -1,0 +1,763 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.dcr.dao.DcrOrderDao" >
+  
+  <!-- 添加一种装修贷款订单 -->
+  <insert id="insertDCROrder" parameterType="com.youmu.mall.dcr.domain.DCROrder">
+		insert into dcr_order
+		(
+			order_no ,
+			user_id ,
+			mobile ,
+			real_name ,
+			dc_address ,
+			order_status,
+			coupon_no,
+			dc_district,
+			dc_area,
+			gmt_create
+		)
+		values(
+			#{orderNo},
+			#{user.id} ,
+	    #{mobile} ,
+	    #{realName} ,
+	    #{dcAddress} ,
+	    #{orderStatus},
+	    #{couponNumber},
+	    #{dcDistrict},
+	    #{dcArea},
+	    now()
+		)
+  </insert>
+  
+  <!-- 修改贷款订单的状态 -->
+  <update id="updateDCROrderByCouponNo" parameterType="com.youmu.mall.dcr.domain.DCROrder">
+		update dcr_order
+		<set>
+		  <if test="orderStatus != null">
+  		  order_status = #{orderStatus},
+		  </if>
+		  <if test="couponNumber != null">
+  		  coupon_no = #{couponNumber},
+		  </if>
+		  <if test="gmtVerifi != null">
+  		  gmt_verifi = #{gmtVerifi},
+		  </if>
+		  <if test="verifiUser != null and verifiUser.id != null">
+  		  verifi_user_id = #{verifiUser.id},
+		  </if>
+		  <if test="verifiBusiness != null and verifiBusiness.id != null">
+  		  verifi_business_id = #{verifiBusiness.id},
+		  </if>
+		</set>
+		where coupon_no = #{couponNumber}
+  </update>
+  
+  <!-- 修改贷款订单的信息 -->
+  <update id="updateDcrRequestOrder" parameterType="com.youmu.mall.dcr.domain.DCROrder">
+		update dcr_order
+		<set>
+		  <if test="orderStatus != null">
+  		  order_status = #{orderStatus},
+		  </if>
+		  <if test="gmtHandle != null">
+  		  gmt_handle = #{gmtHandle},
+		  </if>
+		  <if test="handleUser != null and handleUser.id != null">
+  		  handle_user_id = #{handleUser.id},
+		  </if>
+		</set>
+		where id = #{id} and order_status = 0
+  </update>
+  
+  <sql id="SysWhereSql">
+    <where>
+        <if test="gmtCreateStart != null">
+          and date(o.gmt_create) &gt;= date(#{gmtCreateStart})
+        </if>
+        <if test="gmtCreateEnd != null">
+          and date(o.gmt_create) &lt;= date(#{gmtCreateEnd})
+        </if>
+        <if test="gmtSubCompactStart != null">
+          and date(o.gmt_subcompact) &gt;= date(#{gmtSubCompactStart})
+        </if>
+        <if test="gmtSubCompactEnd != null">
+          and date(o.gmt_subcompact) &lt;= date(#{gmtSubCompactEnd})
+        </if>
+        <if test="gmtCheckedStart != null">
+          and date(o.gmt_sysverifi) &gt;= date(#{gmtCheckedStart})
+        </if>
+        <if test="gmtCheckedEnd != null">
+          and date(o.gmt_sysverifi) &lt;= date(#{gmtCheckedEnd})
+        </if>
+        <if test="keywords != null and keywords != ''">
+          and (o.mobile like concat('%', #{keywords}, '%') or o.order_no like concat('%', #{keywords}, '%'))
+        </if>
+        <if test="mobile != null and mobile != ''">
+          and o.mobile like concat('%', #{mobile}, '%')
+        </if>
+        <if test="orderNo != null and orderNo != ''">
+          and o.order_no like concat('%', #{orderNo}, '%')
+        </if>
+        <if test="businessId != null">
+          and o.verifi_business_id = #{businessId}
+        </if>
+        <if test="orderStatus != null">
+          and o.order_status = #{orderStatus}
+        </if>
+        <if test="minOrderStatus != null">
+          and o.order_status &gt;= #{minOrderStatus}
+        </if>
+        <if test="maxOrderStatus != null">
+          and o.order_status &lt;= #{maxOrderStatus}
+        </if>
+        and o.delete_flag = 0
+     </where>
+  </sql>
+  
+  <sql id="BusWhereSql">
+    <where>
+        <if test="orderStatus != null">
+          and o.order_status = #{orderStatus}
+        </if>
+        <if test="minOrderStatus != null">
+          and o.order_status &gt;= #{minOrderStatus}
+        </if>
+        <if test="maxOrderStatus != null">
+          and o.order_status &lt;= #{maxOrderStatus}
+        </if>
+        <if test="businessId != null">
+          and o.verifi_business_id = #{businessId}
+        </if>
+        and delete_flag = 0
+     </where>
+  </sql>
+  
+  <sql id="PageSql">
+      <if test="startRow != null and pageSize != null">
+        limit #{startRow}, #{pageSize}      
+      </if>
+  </sql>
+  
+  <!-- 后台系统查询贷款订单的数量 -->
+  <select id="selectSysDcrOrderCount" parameterType="com.youmu.mall.dcr.query.DcrOrderQuery" resultType="long">
+		select 
+		  count(o.id)
+		 from 
+		 dcr_order o
+		 <include refid="SysWhereSql" />
+  </select>
+  
+  <!-- 后台系统查询贷款订单的列表 -->
+  <select id="selectSysDcrOrderList" parameterType="com.youmu.mall.dcr.query.DcrOrderQuery" resultType="com.youmu.mall.dcr.vo.DcrOrderSysListVo">
+		select 
+		  id,
+		  mobile,
+		  order_no orderNo,
+		  real_name realName,
+		  concat(dc_area, dc_address) address,
+		  gmt_create applyTime,
+		  order_status status,
+		  gmt_subcompact gmtSubCompact,
+		  sys_verifi_remark sysCheckedRemark
+		 from 
+		 dcr_order o
+		 <include refid="SysWhereSql" />
+		 order by #{gmtOrder}
+		 <include refid="PageSql" />
+  </select>
+  
+  <!-- 添加贷款合同数据 -->
+  <insert id="insertDcrCompactData" parameterType="com.youmu.mall.dcr.domain.DCRCompact" useGeneratedKeys="true" keyProperty="id">
+	insert into dcr_compact
+	(
+		total_amount,
+		order_no ,
+		id_card_imgs,
+		license_imgs,
+		compact_imgs,
+		submit_user_id,
+		gmt_submit,
+		gmt_create
+	)
+	values
+	(
+    #{totalAmount},
+    #{orderNo},
+    #{idCardImgs},
+    #{licenseImgs},
+    #{compactImgs},
+    #{submitUser.id},
+    #{gmtSubmit},
+    now()
+	)
+  </insert>
+  
+  <!-- 查询装修贷款订单的状态 -->
+  <select id="selectDcrOrderStatusByOrderNo" parameterType="string" resultType="int">
+	 select order_status from dcr_order where order_no = #{order_no}
+  </select>
+  
+  <!-- 查询装修贷款订单的状态 -->
+  <select id="selectDcrOrderStatusById" parameterType="long" resultType="int">
+	 select order_status from dcr_order where id = #{id}
+  </select>
+  
+    <!-- 修改贷款订单信息在上传合同信息时 -->
+  <update id="updateOrderBySubmitCompact" parameterType="com.youmu.mall.dcr.domain.DCROrder">
+    update dcr_order
+    <set>
+      <if test="orderStatus != null">
+        order_status = #{orderStatus},
+      </if>
+      <if test="totalAmount != null">
+        total_amount = #{totalAmount},
+      </if>
+      <if test="compact != null and compact.id != null">
+        compact_id = #{compact.id},
+      </if>
+      <if test="compact != null and compact.gmtSubmit != null">
+        gmt_subcompact = #{compact.gmtSubmit},
+      </if>
+      <if test="compact != null and compact.submitUser != null and compact.submitUser.id != null">
+        sub_compact_user_id = #{compact.submitUser.id},
+      </if>
+    </set>
+    where order_no = #{orderNo}
+  </update>
+  
+    <!-- 修改贷款订单信息在后台用户提交审核结果时 -->
+  <update id="updateOrderBySysVerifiCompact" parameterType="com.youmu.mall.dcr.domain.DCROrder">
+    update dcr_order
+    <set>
+      <if test="orderStatus != null">
+        order_status = #{orderStatus},
+      </if>
+      <if test="gmtSysVerifi != null">
+        gmt_sysverifi = #{gmtSysVerifi},
+      </if>
+      <if test="sysVerifiRremark != null">
+        sys_verifi_remark = #{sysVerifiRremark},
+      </if>
+      <if test="sysVerifiUser != null and sysVerifiUser.id != null">
+        sys_verifi_user_id = #{sysVerifiUser.id},
+      </if>
+    </set>
+    where id = #{id}
+  </update>
+  
+    <!-- 修改贷款订单信息在银行商户人员用户提交审核结果时 -->
+  <update id="updateOrderByBankVerifiCompact" parameterType="com.youmu.mall.dcr.domain.DCROrder">
+    update dcr_order
+    <set>
+      <if test="orderStatus != null">
+        order_status = #{orderStatus},
+      </if>
+      <if test="gmtBankVerifi != null">
+        gmt_bankverifi = #{gmtBankVerifi},
+      </if>
+      <if test="bankVerifiRemark != null">
+        bank_verifi_remark = #{bankVerifiRemark},
+      </if>
+      <if test="bankVerifiUser != null and bankVerifiUser != null">
+        bank_verifi_user_id = #{bankVerifiUser.id},
+      </if>
+    </set>
+    where id = #{id}
+  </update>
+  
+  <!-- 查询装修贷款的合同数据 -->
+  <select id="selectDcrOrderCompactDetail" parameterType="long" resultType="com.youmu.mall.dcr.vo.DCRCompactSysVo">
+	 select
+	  o.id id,
+    o.order_no orderNo,
+    o.mobile userMobile,
+    c.total_amount totalAmount,
+    c.id_card_imgs idCardImgs,
+    c.license_imgs licenseImgs,
+    c.compact_imgs compactImgs
+   from 
+   dcr_order o
+   left join 
+   dcr_compact c on c.id = o.compact_id and c.delete_flag = 0
+   where o.id = #{id}
+  </select>
+  
+  <!-- 查询银行审核订单列表 -->
+  <select id="selectBusBankDcrOrderList" parameterType="com.youmu.mall.dcr.query.DcrOrderBusBankQuery" resultType="com.youmu.mall.dcr.vo.DcrOrderBusBankListVo">
+	 select
+    o.id id,
+    o.order_no orderNo,
+    o.mobile mobile,
+    o.gmt_create gmtCreate,
+    o.order_status status,
+    o.bank_verifi_remark remark
+   from 
+   dcr_order o
+   <include refid="BusWhereSql" />
+   order by #{orderBy} desc
+   <include refid="PageSql" />
+  </select>
+  
+  <resultMap id="DCROrderBusinessMap" type="com.youmu.mall.dcr.domain.DCROrder" autoMapping="true">
+    <id column="id" property="id" />
+    <association property="verifiBusiness" javaType="com.youmu.mall.bus.domain.Business">
+      <result column="businessId" property="id"></result>
+      <result column="bankName" property="bankName"></result>
+      <result column="bankAccount" property="bankAccount"></result>
+      <result column="bankUsername" property="bankUsername"></result>
+    </association>
+  </resultMap>
+  
+  <!-- 查询订单的信息通过id-->
+  <select id="selectDcrOrderById" parameterType="long" resultMap="DCROrderBusinessMap">
+	 select
+    o.id id,
+    o.order_no orderNo,
+    o.mobile mobile,
+    o.total_amount totalAmount,
+    b.id businessId,
+    b.bank_name bankName,
+    b.bank_account bankAccount,
+    b.bank_username bankUsername
+   from 
+   dcr_order o
+   left join business b on b.id = o.verifi_business_id and b.delete_flag = 0
+   where o.id = #{id}
+  </select>
+  
+  <!-- 查询所有的装修流程 -->
+  <select id="selectAllDCProcess" resultType="com.youmu.mall.dcr.domain.DCPhase">
+	 select
+    process_name name,
+    proportion
+   from 
+   dc_process
+   where delete_flag = 0 
+   order by id asc
+  </select>
+  
+  <!-- 批量添加装修阶段数据 -->
+  <insert id="batchInsertDCPhase">
+	insert into
+	 dc_phase
+	(
+		amount ,
+		order_no ,
+		order_id ,
+		name ,
+		status ,
+		proportion ,
+		progress ,
+		bus_bank_user_name ,
+		bus_bank_name ,
+		bus_bank_account ,
+	  gmt_create
+	)
+	values
+	<foreach collection="list" item="item" separator=",">
+		(
+	    #{item.amount},
+	    #{item.order.orderNo},
+	    #{item.order.id},
+	    #{item.name},
+	    #{item.status},
+	    #{item.proportion},
+	    #{item.progress},
+	    #{item.busBankUserName},
+	    #{item.busBankName},
+	    #{item.busBankAccount},
+	    now()
+		)
+	</foreach>
+  </insert>
+  
+  <!-- 商户查询订单状态在装修中的订单 -->
+  <select id="selectBusInProgressDcrOrderCount" resultType="long" parameterType="com.youmu.mall.dcr.query.DcrOrderQuery">
+   select 
+	     count(o.id)
+     from 
+     dcr_order o
+     LEFT JOIN dc_phase p ON  o.id = p.order_id and p.delete_flag = 0
+    <include refid="SysWhereSql" />
+    and p.id = (select id from dc_phase dp where dp.order_id = o.id and dp.status != 3 order by dp.progress asc limit 1)
+  </select>
+  
+  <select id="selectBusInProgressDcrOrderList" resultType="com.youmu.mall.dcr.vo.BusDcrOrderListVo" parameterType="com.youmu.mall.dcr.query.DcrOrderQuery">
+   select 
+      o.id,
+      o.mobile,
+      o.order_no orderNo,
+      o.real_name realName,
+      o.total_amount totalAmount,
+      order_status status,
+      p.id phaseId,
+      p.name processName,
+      p.progress progress,
+      p.sys_verifi_status sysVerifiStatus,
+      p.user_verifi_status userVerifiStatus,
+      p.status precessStatus,
+      o.gmt_create gmtCreate
+     from 
+     dcr_order o
+     LEFT JOIN dc_phase p ON  o.id = p.order_id and p.delete_flag = 0
+    <include refid="SysWhereSql" />
+    and p.id = (select id from dc_phase dp where dp.order_id = o.id and dp.status != 3 order by dp.progress asc limit 1)
+	order BY #{gmtOrder}
+   <include refid="PageSql" />
+  </select>
+  
+   <!-- 商户查询订单状态在装修中的订单 -->
+  <select id="selectBusCompleteDcrOrderList" resultType="com.youmu.mall.dcr.vo.BusDcrOrderListVo" parameterType="com.youmu.mall.dcr.query.DcrOrderQuery">
+   select 
+      o.id,
+      o.mobile,
+      o.order_no orderNo,
+      o.real_name realName,
+      o.total_amount totalAmount,
+      o.order_status status,
+      o.gmt_create gmtCreate,
+      o.gmt_finish gmtFinish
+     from 
+     dcr_order o
+    <include refid="SysWhereSql" />
+    order by #{gmtOrder}
+    <include refid="PageSql" />
+  </select>
+  
+  <!-- 修改装修流程 -->
+  <update id="updateDCPhase"  parameterType="com.youmu.mall.dcr.domain.DCPhase">
+    update dc_phase
+	    <set>
+	     <if test="status != null">
+	       status = #{status},
+	     </if>
+	     
+	     <!-- 商户提交数据 -->
+	     <if test="submitUser != null and submitUser.id != null">
+	       submit_user_id = #{submitUser.id},
+	     </if>
+	     <if test="gmtSubmit != null">
+	       gmt_submit = #{gmtSubmit},
+	     </if>
+	     
+	     <!-- 系统审核 -->
+	     <if test="sysVerifiStatus != null">
+	       sys_verifi_status = #{sysVerifiStatus},
+	     </if>
+	     <if test="sysVerifiRemark != null">
+	       sys_verifi_remark = #{sysVerifiRemark},
+	     </if>
+	     <if test="gmtSysVerifi != null">
+	       gmt_sysverifi = #{gmtSysVerifi},
+	     </if>
+	     <if test="sysVerifiUser != null and sysVerifiUser.id != null">
+	       sys_verifi_user_id = #{sysVerifiUser.id},
+	     </if>
+	     
+	     <!-- 用户审核 -->
+	     <if test="userVerifiStatus != null">
+	       user_verifi_status = #{userVerifiStatus},
+	     </if>
+	     <if test="userVerifiRemark != null">
+	       user_verifi_remark = #{userVerifiRemark},
+	     </if>
+	     <if test="gmtUserVerifi != null">
+	       gmt_userverifi = #{gmtUserVerifi},
+	     </if>
+	     <if test="verifiUser != null and verifiUser.id != null">
+	       user_verifi_id = #{verifiUser.id},
+	     </if>
+	     
+	     <!-- 打款信息 -->
+	     <if test="gmtRemit != null">
+         gmt_remit = #{gmtRemit},
+       </if>
+       <if test="sysRemitUser != null and sysRemitUser.id != null">
+         sys_remit_user_id = #{sysRemitUser.id},
+       </if>
+	    </set>
+    where id = #{id}
+  </update>
+  
+  <resultMap id="UserDcrOrderListVoMap" type="com.youmu.mall.dcr.vo.UserDcrOrderListVo" autoMapping="true">
+    <id column="id" property="id"/>
+    <collection property="phases" ofType="com.youmu.mall.dcr.vo.DCPhaseUserListVo">
+      <result column="phaseId" property="id" />
+      <result column="phaseName" property="name" />
+      <result column="userVerifiStatus" property="status" />
+    </collection>
+  </resultMap>
+  
+  <!-- 查询用户装修贷款订单 -->
+  <select id="selectUserDcrOrderList" resultMap="UserDcrOrderListVoMap" parameterType="com.youmu.mall.dcr.query.DcrOrderQuery">
+   select 
+      o.id,
+      o.mobile,
+      o.order_no orderNo,
+      o.total_amount totalAmount,
+      p.id phaseId,
+      p.name phaseName,
+      if(p.sys_verifi_status = 3, p.user_verifi_status, 0) userVerifiStatus
+     from 
+     (
+     	select 
+     		o.id, o.mobile, o.order_no, o.total_amount, o.gmt_create
+     	from dcr_order o
+	    <include refid="SysWhereSql" />
+	    <if test="userId != null">
+	    	and o.user_id = #{userId}
+	    </if>
+	    <include refid="PageSql" />
+     )
+     o
+    left join dc_phase p on p.order_id = o.id and p.delete_flag = 0 
+    order by o.gmt_create desc, p.id asc
+  </select>
+  
+  <!-- 查询用户装修贷款 流程订单 -->
+  <select id="selectDcrDcOrderPhases" resultType="com.youmu.mall.dcr.vo.DCPhaseUserListVo">
+   select 
+      p.id id,
+      p.name name,
+      p.status status
+     from
+     dc_phase p
+     where p.order_id = #{id}
+     order by p.progress
+  </select>
+  
+  <!-- 查询用户装修流程 -->
+  <select id="selectDCPhaseById" resultType="com.youmu.mall.dcr.domain.DCPhase" parameterType="long">
+   select 
+      id,
+      order_id orderId,
+      progress,
+      status,
+	  sys_verifi_status sysVerifiStatus,
+	  user_verifi_status userVerifiStatus
+     from
+     dc_phase
+    where delete_flag = 0 and id = #{id}
+  </select>
+  
+  <!-- 装修流程订单查询对象 -->
+   <sql id="ODcWhereSql">
+   	    <if test="keywords != null and keywords != ''">
+   	    	and (o.mobile like concat('%', #{keywords}, '%') or o.order_no like concat('%', #{keywords}, '%'))
+   	    </if>
+        <if test="mobile != null and mobile != ''">
+          and o.mobile like concat('%', #{mobile}, '%')
+        </if>
+        <if test="orderNo != null and orderNo != ''">
+          and o.order_no like concat('%', #{orderNo}, '%')
+        </if>
+        <if test="orderStatus != null">
+          and o.order_status = #{orderStatus}
+        </if>
+        <if test="minOrderStatus != null">
+          and o.order_status &gt;= #{minOrderStatus}
+        </if>
+	     and o.delete_flag = 0
+  </sql>
+  
+  <!-- 装修流程查询对象 -->
+   <sql id="DPWhereSql">
+        <if test="status != null">
+        	and p.status = #{status}
+        </if>
+	     <if test="minStatus != null">
+	        and p.status &gt;= #{minStatus}
+	     </if>
+	     <if test="maxStatus != null">
+	        and p.status &lt;= #{maxStatus}
+	     </if>
+	     <if test="sysVerifiStatus != null">
+	        and p.sys_verifi_status = #{sysVerifiStatus}
+	     </if>
+	     <if test="minSysVerifiStatus != null">
+	        and p.sys_verifi_status &gt;= #{minSysVerifiStatus}
+	     </if>
+	     <if test="maxSysVerifiStatus != null">
+	        and p.sys_verifi_status &lt;= #{maxSysVerifiStatus}
+	     </if>
+	     <if test="gmtSubmitStart != null">
+	       	and date(p.gmt_submit) &gt;= date(#{gmtSubmitStart})
+	     </if>
+	     <if test="gmtSubmitEnd != null">
+	     	and date(p.gmt_submit) &lt;= date(#{gmtSubmitEnd})
+	     </if>
+	       and p.delete_flag = 0
+  </sql>
+  
+  <select id="selectSysDcrOperatoredOrderCount" resultType="long" parameterType="com.youmu.mall.dcr.query.DcrOrderDcProgressQuery">
+      select 
+       count(o.id)
+     from
+     dcr_order o 
+     left join 
+     dc_phase p on p.order_id = o.id
+	<where>
+		<include refid="DPWhereSql"/>
+	    <include refid="ODcWhereSql" />
+	</where>
+  </select>
+  
+   <!-- 查询后台系统的装修流程列表 进行操作 -->
+  <select id="selectSysDcrOperatoredOrderList" resultType="com.youmu.mall.dcr.vo.DcOrderSysListVo" parameterType="com.youmu.mall.dcr.query.DcrOrderDcProgressQuery">
+      select 
+       o.id,
+       o.mobile,
+       o.order_no orderNo,
+	   o.real_name realName,
+       o.total_amount totalAmount,
+       p.id progressId,
+       p.name progressName,
+       p.amount,
+       p.progress,
+       p.bus_bank_user_name bankUserName,
+	   p.bus_bank_name bankName,
+	   p.bus_bank_account bankAccout,
+       p.gmt_submit gmtSubmit,
+       p.sys_verifi_status sysVerifiStatus,
+       p.sys_verifi_remark sysVerifiRemark,
+       o.gmt_create gmtCreate,
+       p.status status,
+       p.gmt_remit gmtRemit
+     from
+     dcr_order o 
+     left join 
+     dc_phase p on p.order_id = o.id
+	<where>
+		<include refid="DPWhereSql"/>
+	    <include refid="ODcWhereSql" />
+	</where>
+     order by o.gmt_create desc, p.progress asc
+     <include refid="PageSql" />
+  </select>
+  
+  <select id="selectSysDcrInOperatorOrderCount" resultType="long" parameterType="com.youmu.mall.dcr.query.DcrOrderDcProgressQuery">
+      select 
+       count(dp.id)
+     from
+     dcr_order o 
+     left join 
+     dc_phase dp on dp.order_id = o.id
+	 where  dp.id = (
+		select id from dc_phase p
+		<where>
+			<include refid="DPWhereSql"/>
+			and p.order_id = o.id
+		</where>
+		order by p.progress asc limit 1
+	 )
+    <include refid="ODcWhereSql" />
+  </select>
+  
+  <!-- 查询后台系统的装修流程列表 进行操作 -->
+  <select id="selectSysDcrInOperatorOrderList" resultType="com.youmu.mall.dcr.vo.DcOrderSysListVo" parameterType="com.youmu.mall.dcr.query.DcrOrderDcProgressQuery">
+      select 
+       o.id,
+       o.mobile,
+       o.order_no orderNo,
+	   o.real_name realName,
+       o.total_amount totalAmount,
+       dp.id progressId,
+       dp.name progressName,
+       dp.amount,
+       dp.progress,
+       dp.bus_bank_user_name bankUserName,
+	   dp.bus_bank_name bankName,
+	   dp.bus_bank_account bankAccout,
+       dp.gmt_submit gmtSubmit,
+       dp.sys_verifi_status sysVerifiStatus,
+       dp.sys_verifi_remark sysVerifiRemark,
+       o.gmt_create gmtCreate,
+       dp.status status,
+       dp.gmt_remit gmtRemit
+     from
+     dcr_order o 
+     left join 
+     dc_phase dp on dp.order_id = o.id
+	 where  dp.id = (
+		select id from dc_phase p 
+		<where>
+			<include refid="DPWhereSql"/>
+			and p.order_id = o.id
+		</where>
+		order by dp.progress asc limit 1
+	 )
+     <include refid="ODcWhereSql" />
+     order BY o.gmt_subcompact asc
+     <include refid="PageSql" />
+  </select>
+  
+  <select id="selectDcDcrOrderInfo" resultType="com.youmu.mall.dcr.vo.DcOrderSysListVo" parameterType="long">
+      select 
+       o.id,
+       o.mobile,
+       o.order_no orderNo,
+	   o.real_name realName,
+       o.total_amount totalAmount,
+       p.id progressId,
+       p.name progressName,
+       p.amount,
+       p.progress,
+       p.bus_bank_user_name bankUserName,
+	   p.bus_bank_name bankName,
+	   p.bus_bank_account bankAccout,
+       p.gmt_submit gmtSubmit,
+       p.sys_verifi_status sysVerifiStatus,
+       p.sys_verifi_remark sysVerifiRemark,
+       o.gmt_create gmtCreate,
+       p.status status,
+       p.gmt_remit gmtRemit
+     from
+     dcr_order o 
+     left join 
+     dc_phase p on p.order_id = o.id
+     where p.id = #{id}
+  </select>
+  
+    <!-- 订单结束时 -->
+  <update id="updateOrderByFinish" parameterType="com.youmu.mall.dcr.domain.DCROrder">
+    update dcr_order
+    <set>
+      <if test="orderStatus != null">
+        order_status = #{orderStatus},
+      </if>
+      <if test="gmtFinish != null">
+        gmt_finish = #{gmtFinish},
+      </if>
+    </set>
+    where id = #{id}
+  </update>
+  
+  
+   <!-- 查询后台系统的装修流程列表 -->
+  <select id="selectAllDcProcess" resultType="com.youmu.mall.dcr.vo.DCProcessVo">
+   select 
+		      id,
+			process_name name,
+			proportion
+   from
+     dc_process
+   where delete_flag = 0
+   order by id asc
+  </select>
+  
+   <!-- 查询后台系统的装修流程列表 -->
+  <update id="updateDcProcess">
+    INSERT INTO dc_process (id, proportion) VALUES
+    <foreach collection="list" item="item" separator=",">
+      (#{item.id}, #{item.proportion}) 
+    </foreach>
+    ON DUPLICATE KEY UPDATE proportion=VALUES(proportion);
+  </update>
+  
+  <!-- 查询当前装修进度的状态 -->
+  <select id="selectDCPhaseStatusById" parameterType="long" resultType="int">
+  	select status from dc_phase where delete_flag = 0 and id = #{id}
+  </select>
+</mapper>

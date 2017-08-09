@@ -1,0 +1,754 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.order.dao.ProductOrderDao" >
+
+  <sql id="PageSql">
+    <if test="startRow != null and pageSize != null">
+      limit #{startRow}, #{pageSize}
+    </if>
+  </sql>
+  
+  <sql id="OrderSql">
+  	order by o.id DESC
+  </sql>
+
+	<resultMap type="com.youmu.mall.order.vo.ProductOrderShopVo" id="OrderShopMap">
+		<id column="id" property="id"/>
+		<result column="sn" property="sn"/>
+		<result column="totalAmount" property="totalAmount"/>
+		<result column="status" property="status"/>
+		<result column="quantity" property="quantity"/>
+		<result column="isTimeout" property="isTimeout"/>
+		<result column="freight" property="freight"/>
+		<result column="pointsValue" property="pointsValue"/>
+		<result column="isGroupFour" property="isGroupFour"/>
+		<collection property="items" ofType="com.youmu.mall.order.vo.ProductOrderItemVo">
+			<id property="id" column="itemId"/>
+			<result column="thumbnail" property="thumbnail"/>
+			<result column="productId" property="productId"/>
+			<result column="businessId" property="businessId"/>
+			<result column="name" property="name"/>
+			<result column="digest" property="digest"/>
+			<result column="cartId" property="cartId"/>
+			<result column="paidPrice" property="price"/>
+			<result column="itemQuantity" property="quantity"/>
+			<result column="categoryName" property="categoryName"/>
+			<result column="specificationName" property="specificationName"/>
+			<result column="groupType" property="groupType"/>
+		</collection>
+	</resultMap>
+	
+	<resultMap type="com.youmu.mall.order.vo.ProductOrderDetailShopVo" id="OrderDetailShopMap">
+		<id column="id" property="id"/>
+		<result column="sn" property="sn"/>
+		<result column="totalAmount" property="totalAmount"/>
+		<result column="status" property="status"/>
+		<result column="remark" property="remark"/>
+		<result column="totalAmount" property="totalAmount"/>
+		<result column="paidAmount" property="paidAmount"/>
+		<result column="quantity" property="quantity"/>
+		<result column="freight" property="freight"/>
+		<result column="couponAmount" property="couponAmount"/>
+		<result column="receiverName" property="receiverName"/>
+		<result column="receiverMobile" property="receiverMobile"/>
+		<result column="address" property="address"/>
+		<result column="shippingSn" property="shippingSn"/>
+		<result column="shippingMethod" property="shippingMethod"/>
+		<result column="payMethod" property="payMethod"/>
+		<result column="gmtCreate" property="gmtCreate"/>
+		<result column="currentDate" property="currentDate"/>
+		<result column="pointsValue" property="pointsValue"/>
+		<result column="isGroupFour" property="isGroupFour"/>
+		<collection property="items" ofType="com.youmu.mall.order.vo.ProductOrderItemVo">
+			<id property="id" column="itemId"/>
+			<result column="thumbnail" property="thumbnail"/>
+			<result column="productId" property="productId"/>
+			<result column="businessId" property="businessId"/>
+			<result column="price" property="price"/>
+			<result column="itemQuantity" property="quantity"/>
+			<result column="cartId" property="cartId"/>
+			<result column="name" property="name"/>
+			<result column="digest" property="digest"/>
+		</collection>
+	</resultMap>
+	
+  <sql id="WhereSql">
+  	<where>
+  		<if test="keywords != null">
+  			and 
+  			(
+  			b.name like concat('%',#{keywords},'%')
+  			or o.receiver_mobile like concat('%',#{keywords},'%')
+  			or o.sn like concat('%',#{keywords},'%')
+  			)
+  		</if>
+  		<if test="status != null">
+  			and o.status = #{status}
+  		</if>
+  		<if test="userId != null">
+  			and o.user_id = #{userId}
+  		</if>
+  		<if test="businessTypeId != null">
+  			and bt.id = #{businessTypeId}
+  		</if>
+  		<if test="businessId != null">
+  			and b.id = #{businessId}
+  		</if>
+  		<if test="beginDate != null">
+  			and o.gmt_create &gt;= #{beginDate}
+  		</if>
+  		<if test="endDate != null">
+  			and o.gmt_create &lt;= date_sub(#{endDate},interval -1 day)
+  		</if>
+  		and o.delete_flag = 0
+  	</where>
+  </sql>
+  
+  <select id="getOrderList" resultType="com.youmu.mall.order.vo.ProductOrderVo" parameterType="com.youmu.mall.order.query.ProductOrderQuery">
+    select
+    	DISTINCT
+    o.id
+   	,o.sn
+   	,o.total_amount totalAmount
+   	,o.quantity
+   	,o.status status
+   	,o.gmt_create gmtCreate
+  	,o.receiver_mobile mobile
+    from product_order o
+    left join product_order_item item on item.product_order_id = o.id and item.delete_flag = 0
+    left join business b on b.id = item.business_id and b.delete_flag = 0
+    left join business_type bt on bt.id = b.type_id and bt.delete_flag = 0
+    <include refid="WhereSql" />
+    <include refid="OrderSql" />
+    <include refid="PageSql" />
+  </select>
+  
+  <select id="getOrderShopVo" resultMap="OrderShopMap" parameterType="com.youmu.mall.order.query.ProductOrderQuery">
+  	select 
+  		o.id
+  		,o.sn
+  		,o.total_amount totalAmount
+  		,o.status status
+  		,o.quantity quantity
+  		,o.gmt_create gmtCreate
+  		,o.points_value pointsValue
+  		,o.isTimeout
+  		,o.isGroupFour
+  		,oi.id itemId
+  		,oi.name name
+  		,oi.price paidPrice
+  		,oi.quantity itemQuantity
+  		,oi.digest digest
+  		,oi.thumbnail thumbnail
+  		,oi.cart_id cartId
+  		,oi.product_id productId
+  		,oi.business_id businessId
+	   , specification.name specificationName
+	   ,category.name categoryName
+	   ,oi.group_type groupType
+	  ,o.freight
+  	from 
+  	(
+  		select
+	  		o.id
+	  		,o.sn
+	  		,o.total_amount
+	  		,o.status
+	  		,o.quantity
+	  		,o.gmt_create
+	        ,o.freight
+	        ,o.points_value
+	        ,o.is_group_four isGroupFour
+	  		,IF( date_sub(NOW(),interval 30 minute) &lt; o.gmt_create,0,1) isTimeout
+	  	from product_order o
+	  	where o.delete_flag = 0
+  		<if test="status != null and status == 0">
+  			and o.status = 0
+  		</if>
+  		<if test="status != null and status == 1">
+  			and (o.status = 1 or o.status = 2)
+  		</if>
+  		<if test="status != null and status == 3">
+  			and o.status = 3
+  		</if>
+  		<if test="userId != null">
+  			and o.user_id = #{userId}
+  		</if>
+  	 	order by o.gmt_create DESC
+  	 	<include refid="PageSql" />
+  	) o
+  	left join product_order_item oi on o.id = oi.product_order_id and oi.delete_flag = 0
+	left join specification on oi.specification_id = specification.id
+	left join category on   specification.category_id=category.id  
+  	 order by o.gmt_create DESC
+
+  </select>
+  
+  
+  <select id="getOrderDetailShopVo" resultMap="OrderDetailShopMap">
+  	select 
+  		o.id
+  		,o.sn
+  		,o.status
+  		,o.remark
+  		,o.total_amount totalAmount
+  		,o.paid_amount paidAmount
+  		,o.quantity
+  		,o.freight
+  		,o.coupon_amount couponAmount
+  		,o.receiver_name receiverName
+  		,o.receiver_mobile receiverMobile
+  		,o.address
+  		,o.points_value pointsValue
+  		,o.is_group_four isGroupFour
+  		,o.shipping_method shippingMethod
+  		,o.shipping_sn shippingSn
+  		,o.pay_method  payMethod
+  		,o.gmt_create gmtCreate
+  		,NOW() currentDate
+  		 
+  		,oi.id itemId
+  		,oi.name name
+  		,oi.digest digest
+  		,oi.thumbnail thumbnail
+  		,oi.price price
+  		,oi.product_id productId
+  		,oi.business_id businessId
+  		,oi.quantity itemQuantity
+  		,oi.cart_id cartId
+  	from product_order o
+  	left join product_order_item oi on o.id = oi.product_order_id and oi.delete_flag = 0
+  	where o.delete_flag = 0
+  		<if test="orderId != null">
+  			and o.id = #{orderId}
+  		</if>
+  	 order by o.gmt_create DESC
+  </select>
+  
+  <select id="getCountByShop" resultType="long" parameterType="com.youmu.mall.order.query.ProductOrderQuery">
+  	select count(o.id) from product_order o
+  	where o.delete_flag = 0
+  		<if test="status != null and status == 0">
+  			and o.status = 0
+  		</if>
+  		<if test="status != null and status == 1">
+  			and (o.status = 1 or o.status = 2)
+  		</if>
+  		<if test="status != null and status == 3">
+  			and o.status = 3
+  		</if>
+  		<if test="userId != null">
+  			and o.user_id = #{userId}
+  		</if>
+  </select>
+  
+  <insert id="createOrder" parameterType="com.youmu.mall.order.domain.ProductOrder" useGeneratedKeys="true" keyColumn="id" keyProperty="id">
+    insert into product_order 
+    (
+      user_id,
+      receiver_id,
+      business_id,
+      sn,
+      out_trade_number,
+      quantity,
+      total_amount,
+      paid_amount,
+      freight,
+      receiver_name,
+      receiver_mobile,
+      address,
+      status,
+      remark,
+      delete_flag, 
+      gmt_create,
+      points_value,
+      is_group_four
+     )
+    values 
+    (
+      #{userId}
+      ,#{receiverId}
+      ,#{businessId}
+      ,#{sn}
+      ,#{outTradeNumber}
+      ,#{quantity}
+      ,#{totalAmount}
+      ,#{paidAmount}
+      ,#{freight}
+      ,#{receiverName}
+      ,#{receiverMobile}
+      ,#{address}
+      ,#{status}
+      ,#{remark}
+      ,0
+      ,now()
+      ,#{pointsValue}
+      ,#{isGroupFour}
+     )
+  </insert>
+  
+  <insert id="batchSaveOrderItems">
+  	insert into product_order_item
+  	(
+  		name
+  		,product_order_id
+  		,product_id
+  		,business_id
+  		,cart_id
+  		,price
+  		,quantity
+  		,freight
+  		,digest
+  		,thumbnail
+  		,gmt_create
+  		,delete_flag
+	    ,specification_id
+	    ,group_type
+  	)
+  	values
+  	<foreach collection="items" item="item" separator=",">
+  	(
+  		#{item.name}
+  		,#{productOrderId}
+  		,#{item.productId}
+  		,#{item.businessId}
+  		,#{item.cartId}
+  		,#{item.price}
+  		,#{item.quantity}
+  		,#{item.freight}
+  		,#{item.digest}
+  		,#{item.thumbnail}
+  		,now()
+  		,0
+		<if test="item.specificationId!=null">
+		, #{item.specificationId}
+		</if>
+		<if test="item.specificationId==null">
+		,0
+		</if>
+		<if test="item.specificationId!=null">
+		,#{item.groupType}
+		</if>
+		<if test="item.specificationId==null">
+		,null
+		</if>
+	)
+  	</foreach>
+  </insert>
+  
+  <update id="update" parameterType="com.youmu.mall.order.domain.ProductOrder">
+  	update product_order
+  	<set>
+  		<if test="sn != null">
+  			sn = #{sn},
+  		</if>
+  		<if test="outTradeNumber != null">
+  			out_trade_number = #{outTradeNumber},
+  		</if>
+  		<if test="payMethod != null">
+  			pay_method = #{payMethod},
+  		</if>
+  		<!-- 更新为已支付，更新支付时间 -->
+  		<if test="status == 1">
+  			gmt_pay_finished = now(),
+  			status = 1,
+  		</if>
+  		<!-- 状态更新为已发货，更新发货时间 -->
+  		<if test="status == 2">
+  			status = 1,
+  			gmt_send = now(),
+  		</if>
+  		<if test="transactionId != null">
+  			transaction_id = #{transactionId},
+  		</if>
+  		gmt_modified = now()
+  	</set>
+  	where id=#{id} and delete_flag = 0
+  </update>
+  
+  <update id="cancelOrder">
+  	update product_order
+  		set status = 4
+  	where id=#{id} and user_id = #{userId} and status = 0 
+  </update>
+  
+  <select id="getByCount" resultType="long" parameterType="com.youmu.mall.order.query.ProductOrderQuery">
+  	select 
+  		count(DISTINCT  o.id)
+	from product_order o
+    left join product_order_item item on item.product_order_id = o.id and item.delete_flag = 0
+    left join business b on b.id = item.business_id and b.delete_flag = 0
+    left join business_type bt on bt.id = b.type_id and bt.delete_flag = 0
+  	<include refid="WhereSql" />
+  </select>
+  
+  <select id="getById" resultType="com.youmu.mall.order.domain.ProductOrder">
+  	select
+  		id
+  		,status
+  		,sn
+  		,out_trade_number outTradeNumber
+  		,quantity
+  		,business_id businessId
+  		,gmt_create gmtCreate
+  		,paid_amount paidAmount
+  		,points_value pointsValue
+  		,freight
+  	from product_order
+  	where id=#{orderId} and user_id =#{userId} and delete_flag = 0
+  </select>
+  
+   <select id="getOrder" resultType="com.youmu.mall.order.domain.ProductOrder">
+  	select
+  		id
+  		,status
+  		,sn
+  		,out_trade_number outTradeNumber
+  		,quantity
+  		,business_id businessId
+  		,gmt_create gmtCreate
+  		,paid_amount paidAmount
+  		,freight
+  	from product_order
+  	where id=#{orderId} and  delete_flag = 0
+  </select>
+  
+  <select id="getQuantityDtoById" resultType="com.youmu.mall.order.dto.OrderQuantityDto">
+  	select 
+  		oi.product_id productId
+  		,oi.quantity 
+  	from product_order o
+  	left join product_order_item oi on o.id = oi.product_order_id and oi.delete_flag = 0
+  	left join product p on p.id = oi.product_id and p.delete_flag = 0
+  	where o.id =#{orderId} and o.delete_flag = 0
+  </select>
+  
+  <!-- 根据订单号返回的数据 -->
+   <resultMap type="com.youmu.mall.order.domain.ProductOrder" id="TradeOrderMap">
+		<id column="id" property="id"/>
+		<result column="sn" property="sn"/>
+		<result column="outTradeNumber" property="outTradeNumber"/>
+		<result column="status" property="status"/>
+		<result column="paidAmount" property="paidAmount"/>
+		<result column="userId" property="userId"/>
+		<result column="businessId" property="businessId"/>
+		<result column="totalQuantity" property="quantity"/>
+		<result column="pointsValue" property="pointsValue"/>
+		<collection property="items" ofType="com.youmu.mall.order.domain.ProductOrderItem">
+			<id property="id" column="itemId"/>
+			<result column="productId" property="productId"/>
+			<result column="quantity" property="quantity"/>
+		</collection>
+	</resultMap>
+  
+  <!-- 获得外部订单号 -->
+  <select id="getByOutTradeNumber" resultMap="TradeOrderMap">
+	  	select 
+	  		o.id
+	  		,o.out_trade_number outTradeNumber
+	  		,o.status
+	  		,o.sn
+	  		,o.paid_amount paidAmount
+	  		,o.user_id userId
+	  		,o.business_id businessId
+	  		,o.quantity totalQuantity
+	  		,o.points_value pointsValue
+	  		,oi.id itemId
+	  		,oi.product_id productId
+	  		,oi.quantity
+	  		
+	  	from product_order o
+	  	left join product_order_item oi on o.id = oi.product_order_id and oi.delete_flag = 0
+	  	where o.out_trade_number = #{outTradeNumber}
+  </select>
+  
+  <!-- 根据商户订单号查询订单 -->
+  <select id="getBySn" resultMap="TradeOrderMap">
+	  	select 
+	  		o.id
+	  		,o.out_trade_number outTradeNumber
+	  		,o.status
+	  		,o.sn
+	  		,o.paid_amount paidAmount
+	  		,o.user_id userId
+	  		,o.business_id businessId
+	  		,oi.id itemId
+	  		,oi.product_id productId
+	  		,oi.quantity
+	  		
+	  	from product_order o
+	  	left join product_order_item oi on o.id = oi.product_order_id and oi.delete_flag = 0
+	  	where o.sn = #{sn}
+	  </select>
+	  
+	    <!-- 根据商户订单号查询订单 -->
+  <select id="getInfoByShippingSn" resultType="com.youmu.mall.order.domain.ProductOrder">
+  	select
+  		id
+  		,status
+  		,sn
+  		,out_trade_number outTradeNumber
+  		,quantity
+  		,business_id businessId
+  		,gmt_create gmtCreate
+  		,paid_amount paidAmount
+  		,freight
+  	from product_order
+  	where shipping_sn = #{shippingSn}  and  delete_flag = 0
+	  	 
+	  </select>
+	 
+	<select id="getProductOrderBusVoByCount" resultType="long" parameterType="com.youmu.mall.order.query.ProductOrderQuery">
+		select 
+			count(o.id)
+		FROM product_order o
+		left join product_order_item oi on oi.product_order_id = o.id and oi.delete_flag = 0
+		where o.delete_flag = 0
+  			and oi.business_id = #{businessId}
+  		<if test="shippingStatus != null and shippingStatus == 1">
+			and o.status = 1
+		</if>
+		<if test="shippingStatus != null and shippingStatus == 2">
+			and (o.status = 2 or o.status = 3)
+		</if>
+		<if test="sn != null">
+  			and o.sn like concat('%',#{sn},'%')
+  		</if>
+  		<if test="beginDate != null">
+  			and o.gmt_create&gt;=DATE(#{beginDate})
+  		</if>
+  		<if test="endDate != null">
+  			and o.gmt_create&lt;=date_sub(#{endDate},interval -1 day)
+  		</if>
+	</select>
+	
+	<!-- 商户端订单列表 -->
+	<select id="getProductOrderListBusVo" resultType="com.youmu.mall.order.vo.ProductOrderBusVo" parameterType="com.youmu.mall.order.query.ProductOrderQuery">
+		SELECT
+		o.id
+		,o.status
+		,o.quantity
+		,o.total_amount totalAmount
+		,o.sn 
+		,o.receiver_mobile mobile
+		,date_format(o.gmt_pay_finished,'%Y-%m-%d %H:%i:%s') gmtPayFinished
+		from product_order o
+		where o.delete_flag = 0
+  			and o.business_id = #{businessId}
+		<if test="shippingStatus != null and shippingStatus == 1">
+			and o.status = 1
+		</if>
+		<if test="shippingStatus != null and shippingStatus == 2">
+			and (o.status = 2 or o.status = 3)
+		</if>
+		<if test="sn != null">
+  			and o.sn like concat('%',#{sn},'%')
+  		</if>
+  		<if test="beginDate != null">
+  			and o.gmt_create &gt;= DATE(#{beginDate})
+  		</if>
+  		<if test="endDate != null">
+  			and o.gmt_create &lt;= date_sub(#{endDate},interval -1 day)
+  		</if>
+		<if test="startRow != null and pageSize != null">
+	    	limit #{startRow},#{pageSize}
+		</if>
+	</select>
+	
+	<resultMap type="com.youmu.mall.order.vo.ProductOrderDetailBusVo" id="ProductOrderDetailBusVoMap">
+		<id column="id" property="id"/>
+		<result column="sn" property="sn"/>
+		<result column="shippingSn" property="shippingSn"/>
+		<result column="status" property="status"/>
+		<result column="receiverName" property="receiverName"/>
+		<result column="receiverMobile" property="receiverMobile"/>
+		<result column="address" property="address"/>
+		<result column="remark" property="remark"/>
+		<collection property="items" ofType="com.youmu.mall.order.vo.ProductOrderItemVo">
+			<id property="id" column="itemId"/>
+			<result column="name" property="name"/>
+			<result column="quantity" property="quantity"/>
+			<result column="price" property="price"/>
+			<result column="oldPrice" property="oldPrice"/>
+			<result column="categoryName" property="categoryName"/>
+			<result column="specificationName" property="specificationName"/>
+           
+		</collection>
+	</resultMap>
+	
+	<resultMap type="com.youmu.mall.order.vo.ProductOrderDetailSysVo" id="ProductOrderDetailSysVoMap">
+		<id column="id" property="id"/>
+		<result column="sn" property="sn"/>
+		<result column="shippingSn" property="shippingSn"/>
+		<result column="status" property="status"/>
+		<result column="receiverName" property="receiverName"/>
+		<result column="receiverMobile" property="receiverMobile"/>
+		<result column="address" property="address"/>
+		<result column="remark" property="remark"/>
+		<collection property="items" ofType="com.youmu.mall.order.vo.ProductOrderItemVo">
+			<id property="id" column="itemId"/>
+			<result column="name" property="name"/>
+			<result column="quantity" property="quantity"/>
+			<result column="price" property="price"/>
+			<result column="oldPrice" property="oldPrice"/>
+			<result column="categoryName" property="categoryName"/>
+			<result column="specificationName" property="specificationName"/>
+
+		</collection>
+	</resultMap>
+	<!-- 商户端订单明细 -->
+	<select id="getProductOrderDetailBusVo" resultMap="ProductOrderDetailBusVoMap">
+		SELECT
+		o.id
+		,o.shipping_sn shippingSn
+		,o.status
+		,o.receiver_name receiverName
+		,o.receiver_mobile receiverMobile
+		,o.address
+		,o.sn sn
+		,o.remark
+		,oi.id itemId 
+		,oi.name
+		,p.old_price oldPrice 
+		,oi.quantity
+		,oi.price
+		, specification.name specificationName
+		,category.name categoryName
+		
+		FROM product_order o 
+		LEFT JOIN product_order_item oi on oi.product_order_id = o.id and oi.delete_flag = 0
+		LEFT JOIN product p on p.id = oi.product_id and p.delete_flag = 0
+		left join specification on oi.specification_id = specification.Id
+		left join category on   specification.category_id=category.id
+		where
+			o.delete_flag = 0
+			and o.id = #{id} 
+			and oi.business_id = #{bid} 
+		<if test="shippingStatus != null and shippingStatus == 1">
+			and o.status = 1
+		</if>
+		<if test="shippingStatus != null and shippingStatus == 2">
+			and (o.status = 2 or o.status = 3)
+		</if>
+			
+	</select>
+	
+	<!-- 管理后台订单明细 -->
+	<select id="getProductOrderDetailSysVo" resultMap="ProductOrderDetailSysVoMap">
+		SELECT
+		o.id
+		,o.shipping_sn shippingSn
+		,o.status
+		,o.receiver_name receiverName
+		,o.receiver_mobile receiverMobile
+		,o.address
+		,o.sn sn
+		,o.remark
+		,oi.id itemId 
+		,oi.name
+		,p.old_price oldPrice 
+		,oi.quantity
+		,oi.price
+		, specification.name specificationName
+		,category.name categoryName
+		FROM product_order o 
+		LEFT JOIN product_order_item oi on oi.product_order_id = o.id and oi.delete_flag = 0
+		LEFT JOIN product p on p.id = oi.product_id and p.delete_flag = 0
+		left join specification on oi.specification_id = specification.Id
+		left join category on   specification.category_id=category.id
+		where
+			o.delete_flag = 0
+			and o.id = #{id}  			
+	</select>
+	
+	<!-- 商户发货 -->
+	<update id="sendProductOrderById">
+			update product_order
+			set 
+				status = 2
+				,shipping_method = #{shippingMethod}
+				,shipping_sn = #{shippingSn}
+				,gmt_send = now()
+			where id=#{id} and delete_flag=0
+	</update>
+	
+	<!-- 查询待支付的所有订单 -->
+	<select id="findCancelOrders" resultType="com.youmu.mall.order.domain.ProductOrder">
+	  	select id,gmt_create gmtCreate from product_order
+	  	where status = 0 and delete_flag = 0
+    </select>
+    
+    
+    <!-- 批量取消订单 -->
+	<update id="batchCancelOrders">
+		  	update product_order
+		  	set status = 4
+		  	where delete_flag = 0 and status = 0 and id in 
+	  	<foreach collection="list" item="item" open="(" close=")" separator=",">
+	  		#{item}
+	  	</foreach>
+    </update>
+    
+    <select id="getAmountByOutTradeNumber" resultType="java.math.BigDecimal">
+    	select 
+    		sum(paid_amount)
+    	from product_order
+    	where out_trade_number = #{outTradeNumber} and status = 0 and delete_flag = 0
+    </select>
+    
+    
+    <!-- 导出商品订单的map -->
+    <resultMap type="com.youmu.mall.order.dto.OrderExportDto" id="ProductOrderExcelMap">
+		<result column="sn" property="sn"/>
+		<result column="paidAmount" property="paidAmount"/>
+		<result column="gmtPayFinished" property="gmtPayFinished"/>
+		<result column="mobile" property="mobile"/>
+		<result column="status" property="status"/>
+		<result column="receiverName" property="receiverName"/>
+		<result column="receiverMobile" property="receiverMobile"/>
+		<result column="address" property="address"/>
+		<collection property="items" ofType="com.youmu.mall.order.domain.ProductOrderItem">
+			<result column="name" property="name"/>
+			<result column="quantity" property="quantity"/>
+		</collection>
+	</resultMap>
+	
+	
+    <!-- 导出订单商品的数据 -->
+    <select id="getExportProductInfo" resultMap="ProductOrderExcelMap" parameterType="com.youmu.mall.order.query.ProductOrderQuery">
+    	select 
+    		o.sn sn
+    		,o.paid_amount paidAmount
+    		,date_format(o.gmt_pay_finished,'%Y-%m-%d %H:%i:%s') gmtPayFinished
+    		,u.mobile
+    		,CASE o.status
+    			WHEN 1 THEN "待发货"
+    			WHEN 2 THEN "待收货"
+    		END AS status
+			,o.receiver_name receiverName
+			,o.receiver_mobile receiverMobile
+			,o.address
+			,oi.name
+    		,oi.quantity
+    	from product_order o
+    	left join product_order_item oi on oi.product_order_id = o.id and o.delete_flag = 0
+    	left join user u on u.id = o.user_id and u.delete_flag = 0 and u.status = 0
+    	where o.delete_flag = 0
+  			and o.business_id = #{businessId}
+		<if test="shippingStatus != null and shippingStatus == 1">
+			and o.status = 1
+		</if>
+		<if test="shippingStatus != null and shippingStatus == 2">
+			and (o.status = 2 or o.status = 3)
+		</if>
+		<if test="sn != null">
+  			and o.sn like concat('%',#{sn},'%')
+  		</if>
+  		<if test="beginDate != null">
+  			and o.gmt_create &gt;= DATE(#{beginDate})
+  		</if>
+  		<if test="endDate != null">
+  			and o.gmt_create &lt;= date_sub(#{endDate},interval -1 day)
+  		</if>
+    </select>
+</mapper>

@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.youmu.mall.bus.dao.BusinessDao" >
+  
+  <!-- 添加一个商户类型 -->
+  <insert id="insertBusiness" parameterType="com.youmu.mall.bus.domain.Business" useGeneratedKeys="true" keyProperty="id">
+	insert into business
+	(
+		name ,
+		address ,
+		phone ,
+		gmt_end ,
+		gmt_start ,
+		remark ,
+		type_id ,
+		bank_type ,
+		bank_name ,
+		bank_account ,
+		bank_username ,
+		gmt_create
+	)
+	values
+	(
+	#{name},
+    #{address},
+    #{phone},
+    #{gmtEnd},
+    #{gmtStart},
+    #{remark},
+    #{type.id},
+    #{bankType},
+    #{bankName},
+    #{bankAccount},
+    #{bankUsername},
+    now()
+	)
+  </insert>
+  
+  <resultMap type="com.youmu.mall.bus.domain.Business" id="BusinessResultMap" autoMapping="true">
+  	<id column="id"  property="id" />
+  	<association property="type" javaType="com.youmu.mall.bus.domain.BusinessType">
+  		<id column="type_id" property="id"/>
+  	</association>
+  </resultMap>
+  
+  <!-- 查询一个商户类型 -->
+  <select id="getBusinessById"  parameterType="long" resultMap="BusinessResultMap">
+	select
+		id,
+		name name,
+		address address,
+		phone   phone,
+		gmt_end gmtEnd,
+		gmt_start  gmtStart,
+		remark  remark,
+		type_id,
+		bank_type  bankType,
+		bank_name  bankName,
+		bank_account bankAccount,
+		bank_username bankUsername,
+		gmt_create gmtCreate
+	from
+		business
+		where id = #{id}
+  </select>
+  
+  <!-- 查询商户是否重复 -->
+  <select id="selectRepeatBusinessCount" parameterType="com.youmu.mall.bus.domain.Business" resultType="long">
+		select count(id) from business
+		<where>
+		  delete_flag = 0
+	  	<if test="name != null">
+	  	 and name = #{name} 
+		  </if>
+		  <if test="bankAccount != null">
+	  	 and bank_account = #{bankAccount}
+		  </if>
+		</where> 
+  </select>
+  
+  <sql id="WhereSql">
+    <where>
+        b.delete_flag = 0
+      <if test="keywords != null and keywords != ''">
+       and b.name like concat('%', #{keywords}, '%') 
+      </if>
+      <if test="typeId != null">
+       and b.type_id = #{typeId}
+      </if>
+      <if test="gmtEnd != null">
+       and b.gmt_end = #{gmtEnd}
+      </if>
+      <if test="expired != null and expired == true">
+       and b.gmt_end &lt; current_date() 
+      </if>
+      <if test="expired != null and expired == false">
+       and b.gmt_end &gt;= current_date() 
+      </if>
+    </where> 
+  </sql>
+  
+  <sql id="PageSql">
+    <if test="startRow != null and pageSize != null">
+      limit #{startRow}, #{pageSize}
+    </if>
+  </sql>
+  
+ <!--   查询商户数量
+  <select id="selectBusinessCount" parameterType="com.youmu.mall.bus.query.BusinessQuery" resultType="long">
+    select count(id) from business b
+    <include refid="WhereSql" />
+  </select> -->
+  
+  <!--   查询商户数量-->
+  <select id="selectBusinessCount" parameterType="com.youmu.mall.bus.query.BusinessQuery" resultType="long">
+    select count(*) from business b 
+    LEFT JOIN bussness_busstype bbt ON bbt.business_id=b.id
+    where b.delete_flag=0
+    <!-- <include refid="WhereSql" /> -->
+  </select> 
+  
+  <!-- 根据id查询商户的商品的数量 -->
+  <select id="selectBusinessProductCount" parameterType="com.youmu.mall.product.query.ProductQuery" resultType="long">
+  		select
+  		count(p.id)
+  		from product p
+  		where p.business_id = #{businessId}
+  		<if test="keywords != null and keywords != ''">
+			and
+			(
+			p.name like concat('%',#{keywords},'%')
+			)
+			</if>
+  </select>
+  
+  
+     <!-- 根据商户id查询其商品列表 -->
+     <select id="getBusinessProductsById" resultType="com.youmu.mall.product.vo.ProductSysVo"
+     parameterType="com.youmu.mall.product.query.ProductQuery">
+     	select
+		p.id
+		,p.name
+		,p.thumbnail
+		,p.old_price oldPrice
+		,p.promotion_price promotionPrice
+		,p.total
+		,p.status
+		from product p
+		where p.business_id=#{businessId}
+		<if test="keywords != null and keywords != ''">
+			and
+			(
+			p.name like concat('%',#{keywords},'%')
+			)
+			</if>
+		<include refid="PageSql" />
+	</select>
+  
+  
+<!--    查询商户内容
+  <select id="selectBusinessList" parameterType="com.youmu.mall.bus.query.BusinessQuery" resultType="com.youmu.mall.bus.vo.BusinessListVo">
+    select 
+      b.id, t.name typeName, b.name, b.gmt_end gmtEnd
+    from business b
+    left join business_type t on  t.id = b.type_id and t.delete_flag = 0
+    <include refid="WhereSql" />
+    <include refid="PageSql" />
+  </select> -->
+  
+   <!-- 查询商户内容 -->
+   <select id="selectBusinessList" parameterType="com.youmu.mall.bus.query.BusinessQuery" resultType="com.youmu.mall.bus.vo.BusinessListVo">
+	  select
+	  b.id, t.name typeName, b.name, b.gmt_end gmtEnd,bbt.business_type_id businessTypeId
+	  from business b
+	  LEFT JOIN bussness_busstype bbt ON b.id=bbt.business_id
+	  LEFT join business_type t on  t.id = bbt.business_type_id and t.delete_flag = 0
+    <include refid="WhereSql"/>
+	  ORDER BY b.id
+    <include refid="PageSql"/>
+  </select>
+  
+   <!-- 查询多个商户下的商户类型的总数量 -->
+  <select id="selectBusinesstypeidCount" parameterType="long" resultType="long"> 
+      select count(*) from bussness_busstype bbt
+      LEFT JOIN business b ON b.id=bbt.business_id
+      where business_id=#{business_id}
+  </select>
+  
+  <!-- 修改商户的营业执照 -->
+  <update id="updateBusiness" parameterType="com.youmu.mall.bus.domain.Business">
+    update business 
+    <set>
+    	<if test="name != null and name != ''">
+    		name = #{name},
+    	</if>
+    	<if test="type != null and type.id != ''">
+    		type_id = #{type.id},
+    	</if>
+    	<if test="gmtStart != null">
+    		gmt_start = #{gmtStart},
+    	</if>
+    	<if test="gmtEnd != null">
+    		gmt_end = #{gmtEnd},
+    	</if>
+    	<if test="address != null and address != ''">
+    		address = #{address},
+    	</if>
+    	<if test="bankType != null">
+    		bank_type = #{bankType},
+    	</if>
+    	<if test="bankAccount != null">
+    		bank_account = #{bankAccount},
+    	</if>
+    	<if test="bankUsername != null">
+    		bank_username = #{bankUsername},
+    	</if>
+    	<if test="bankName != null">
+    		bank_name = #{bankName},
+    	</if>
+    	<if test="remark != null">
+    		remark = #{remark},
+    	</if>
+    	<if test="busLicense != null">
+	    	bus_license = #{busLicense},
+    	</if>
+    	<if test="busStoreImgs != null">
+	    	bus_store_imgs = #{busStoreImgs},
+    	</if>
+    	<if test="authPass != null">
+	    	auth_pass = #{authPass},
+    	</if>
+    </set>
+    where id = #{id} and delete_flag = 0
+  </update>
+  
+  <!-- 查询商户的详情 -->
+  <select id="selectBusinessDetail" parameterType="long" resultType="com.youmu.mall.bus.vo.BusinessDetailVo">
+  	select 
+  	id,
+  	name,
+  	bus_license busLicense,
+  	bus_store_imgs busStoreImgs
+  	from  business where id = #{id}
+  </select>
+  
+  <select id="getTypeIdById" resultType="long">
+  	select 
+  		t.id
+  	from business b
+    left join business_type t on  t.id = b.type_id and t.delete_flag = 0
+    where b.delete_flag = 0 and b.id = #{id}
+  </select>
+  
+</mapper>
